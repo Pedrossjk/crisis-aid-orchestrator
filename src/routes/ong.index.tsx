@@ -43,6 +43,20 @@ function OngDashboard() {
         </div>
       </div>
 
+      {/* AI orchestration banner */}
+      <div className="mt-6 bg-gradient-hero p-5 text-ai-foreground shadow-elegant">
+        <div className="flex flex-wrap items-start gap-3">
+          <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-[200px]">
+            <p className="font-bold">A IA orquestrou 3 movimentos hoje</p>
+            <p className="mt-1 text-sm opacity-90">4 voluntários ideais para "Cestas básicas" · 2 ONGs com recursos compatíveis · 1 caso urgente sugerido</p>
+          </div>
+          <Button asChild size="sm" variant="secondary" className="shrink-0">
+            <Link to="/ong/network">Ver conexões <ArrowRight className="ml-1 h-3 w-3" /></Link>
+          </Button>
+        </div>
+      </div>
+
       {/* KPIs */}
       <div className="mt-6 grid gap-3 grid-cols-2 lg:grid-cols-5">
         {[
@@ -65,19 +79,7 @@ function OngDashboard() {
         })}
       </div>
 
-      {/* AI orchestration banner */}
-      <div className="mt-6 rounded-2xl bg-gradient-ai p-5 text-ai-foreground shadow-elegant">
-        <div className="flex flex-wrap items-start gap-3">
-          <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-[200px]">
-            <p className="font-bold">A IA orquestrou 3 movimentos hoje</p>
-            <p className="mt-1 text-sm opacity-90">4 voluntários ideais para "Cestas básicas" · 2 ONGs com recursos compatíveis · 1 caso urgente sugerido</p>
-          </div>
-          <Button asChild size="sm" variant="secondary" className="shrink-0">
-            <Link to="/ong/network">Ver conexões <ArrowRight className="ml-1 h-3 w-3" /></Link>
-          </Button>
-        </div>
-      </div>
+
 
       {/* Quick sections grid */}
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -181,8 +183,8 @@ function OngDashboard() {
                 <span className={cn(
                   "rounded-full px-2 py-0.5 font-medium",
                   c.status === "active" ? "bg-success/15 text-success" :
-                  c.status === "pending" ? "bg-warning/15 text-warning" :
-                  "bg-muted text-muted-foreground"
+                    c.status === "pending" ? "bg-warning/15 text-warning" :
+                      "bg-muted text-muted-foreground"
                 )}>
                   {c.status === "active" ? "Ativa" : c.status === "pending" ? "Pendente" : "Concluída"}
                 </span>

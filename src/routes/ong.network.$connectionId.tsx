@@ -51,7 +51,7 @@ function ConnectionDetail() {
       </Button>
 
       {/* Hero */}
-      <div className="rounded-3xl bg-gradient-ai p-6 text-ai-foreground shadow-elegant">
+      <div className="bg-gradient-hero  p-6 text-ai-foreground shadow-elegant">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 font-bold text-xl">{connection.orgInitials}</div>
@@ -82,7 +82,7 @@ function ConnectionDetail() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Conversation timeline */}
-        <section className="rounded-2xl border border-border/60 bg-card shadow-soft">
+        <section className="border border-border/60 bg-card shadow-soft">
           <header className="flex items-center justify-between border-b border-border/60 px-5 py-3">
             <h2 className="font-bold">Conversa institucional</h2>
             <span className="text-xs text-muted-foreground">Privada · entre as ONGs</span>
@@ -127,7 +127,7 @@ function ConnectionDetail() {
 
         {/* Side: actions and contacts */}
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
+          <div className="border border-border/60 bg-card p-5 shadow-soft">
             <h3 className="font-bold text-sm">Próximos passos sugeridos</h3>
             <ul className="mt-3 space-y-2.5 text-sm">
               <li className="flex items-start gap-2">
@@ -157,7 +157,7 @@ function ConnectionDetail() {
             </Button>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
+          <div className="border border-border/60 bg-card p-5 shadow-soft">
             <h3 className="font-bold text-sm flex items-center gap-2"><Building2 className="h-4 w-4" /> Contato institucional</h3>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ function ConnectionDetail() {
             </dl>
           </div>
 
-          <div className="rounded-2xl border border-ai/30 bg-ai/5 p-5">
+          <div className="border border-ai/30 bg-ai/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wider text-ai flex items-center gap-1">
               <Sparkles className="h-3 w-3" /> Insight da IA
             </p>
