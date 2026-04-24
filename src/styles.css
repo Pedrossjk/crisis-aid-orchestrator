@@ -133,7 +133,9 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -145,36 +147,68 @@
   .bg-gradient-hero {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
   }
+
+  .font-gradient-emphasis {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-glow) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .bg-gradient-ai {
     background: linear-gradient(135deg, var(--ai) 0%, oklch(0.68 0.2 250) 100%);
   }
+
   .bg-gradient-urgent {
     background: linear-gradient(135deg, var(--urgent) 0%, oklch(0.72 0.2 35) 100%);
   }
+
   .bg-gradient-subtle {
     background: linear-gradient(180deg, color-mix(in oklab, var(--primary) 4%, var(--background)) 0%, var(--background) 100%);
   }
+
   .text-gradient-ai {
     background: linear-gradient(135deg, var(--ai) 0%, oklch(0.68 0.2 250) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
+
   .glass-card {
     background: color-mix(in oklab, var(--card) 80%, transparent);
     backdrop-filter: blur(12px);
     border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
   }
-  .shadow-soft { box-shadow: var(--shadow-soft); }
-  .shadow-elegant { box-shadow: var(--shadow-elegant); }
-  .shadow-glow { box-shadow: var(--shadow-glow); }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
 }
 
 @layer base {
   @keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--urgent) 50%, transparent); }
-    70% { box-shadow: 0 0 0 12px transparent; }
-    100% { box-shadow: 0 0 0 0 transparent; }
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--urgent) 50%, transparent);
+    }
+
+    70% {
+      box-shadow: 0 0 0 12px transparent;
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
   }
-  .animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+  .animate-pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }

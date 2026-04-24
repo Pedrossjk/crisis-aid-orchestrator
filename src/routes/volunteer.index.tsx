@@ -83,7 +83,7 @@ function VolunteerHome() {
         </section>
 
         {/* AI recommendation strip */}
-        <div className="flex items-center gap-3 rounded-2xl bg-gradient-ai p-4 text-ai-foreground shadow-soft">
+        <div className="flex items-center gap-3 rounded-2xl bg-gradient-hero  p-4 text-ai-foreground shadow-soft">
           <Sparkles className="h-5 w-5 shrink-0" />
           <div className="flex-1 text-sm">
             <p className="font-semibold">Feed personalizado pela IA</p>

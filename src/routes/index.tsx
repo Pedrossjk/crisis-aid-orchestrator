@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HeartHandshake, Sparkles, Users, Building2, Activity, ArrowRight, ShieldCheck, Zap, MapPin } from "lucide-react";
+import { HeartHandshake, Sparkles, Users, Building2, ArrowRight, ShieldCheck, Zap, MapPin, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -18,14 +18,14 @@ function Landing() {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5">
+      <header className="mt-2 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 bg-white/80 backdrop-blur-sm rounded-xl shadow-elegant">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-hero shadow-glow">
             <HeartHandshake className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
             <p className="text-base font-bold leading-tight">Orquestra</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ajuda inteligente</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Uma Rede de ação</p>
           </div>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -37,28 +37,17 @@ function Landing() {
       <section className="mx-auto max-w-7xl px-4 py-12 md:py-20">
         <div className="grid gap-12 md:grid-cols-2 md:items-center">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-ai/30 bg-ai/10 px-3 py-1 text-xs font-medium text-ai">
+            <div className="inline-flex items-center gap-2 border border-ai/30 bg-ai/10 px-3 py-1 text-xs font-medium text-ai">
               <Sparkles className="h-3 w-3" />
-              Powered by IA · Match em tempo real
+              Powered by · IBM watsonx.ai 
             </div>
             <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight md:text-6xl">
-              Não conectamos pessoas. <span className="text-gradient-ai">Orquestramos ajuda.</span>
+              Não conectamos pessoas. <span className="font-gradient-emphasis ">Orquestramos ajuda.</span>
             </h1>
             <p className="mt-5 text-lg text-muted-foreground">
               Em situações de crise, cada minuto importa. Nossa IA prioriza emergências, recomenda
               ações e organiza voluntários, ONGs e recursos para uma resposta rápida e eficiente.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-gradient-hero shadow-elegant">
-                <Link to="/onboarding">
-                  Começar agora
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link to="/volunteer">Ver demonstração</Link>
-              </Button>
-            </div>
 
             <div className="mt-10 grid grid-cols-3 gap-4">
               {[
@@ -72,15 +61,28 @@ function Landing() {
                 </div>
               ))}
             </div>
+
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Button asChild size="lg" className="bg-gradient-hero shadow-elegant">
+                <Link to="/onboarding">
+                  Começar agora
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/volunteer">Ver demonstração</Link>
+              </Button>
+            </div>
+
           </div>
 
           {/* Visual */}
           <div className="relative">
             <div className="absolute -inset-4 rounded-3xl bg-gradient-ai opacity-20 blur-3xl" />
             <div className="relative space-y-3 rounded-3xl border border-border/60 bg-card p-5 shadow-elegant">
-              <div className="flex items-center gap-2 rounded-xl bg-gradient-ai p-3 text-ai-foreground">
+              <div className="flex items-center gap-2 rounded-xl bg-gradient-hero p-3 text-ai-foreground">
                 <Sparkles className="h-4 w-4" />
-                <p className="text-xs font-medium">IA encontrou 4 ações ideais para você</p>
+                <p className="text-xs font-medium">IA encontrou 3 ações ideais para você</p>
               </div>
               {[
                 { c: "bg-urgent", t: "Distribuição de cestas — Blumenau", d: "2.4 km · 4h · 12/20 voluntários", b: "URGENTE" },
@@ -155,8 +157,8 @@ function Landing() {
 
       {/* CTA */}
       <section className="mx-auto max-w-7xl px-4 py-16">
-        <div className="overflow-hidden rounded-3xl bg-gradient-hero p-10 text-center text-primary-foreground shadow-elegant md:p-16">
-          <Activity className="mx-auto h-10 w-10 opacity-90" />
+        <div className="overflow-hidden rounded-2xl bg-gradient-hero p-10 text-center text-primary-foreground shadow-elegant md:p-16">
+          <Rocket  className="mx-auto h-10 w-10 opacity-90" />
           <h2 className="mt-4 text-3xl font-bold md:text-4xl">Pronto para fazer a diferença?</h2>
           <p className="mt-3 opacity-90">Cadastre-se em menos de 2 minutos e seja parte da resposta.</p>
           <Button asChild size="lg" variant="secondary" className="mt-6">
@@ -169,7 +171,7 @@ function Landing() {
       </section>
 
       <footer className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-muted-foreground">
-        © 2026 Orquestra · Ajuda inteligente em crises
+        © 2026 Orquestra · Hackathon IA Descomplicada · Unasp and IBM
       </footer>
     </div>
   );

@@ -26,7 +26,7 @@ export function ActionPost({ action }: { action: CrisisAction }) {
 
   return (
     <article className={cn(
-      "rounded-2xl border border-border/60 border-l-4 bg-card shadow-soft transition-all hover:shadow-elegant",
+      "border border-border/50 border-l-3 bg-card shadow-soft transition-all hover:shadow-elegant",
       urgencyAccent[action.urgency]
     )}>
       {/* Header: org + meta */}
