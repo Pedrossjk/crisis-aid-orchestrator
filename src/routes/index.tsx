@@ -108,11 +108,11 @@ function Landing() {
           <p className="mt-3 text-muted-foreground">Escolha como você quer fazer parte da rede.</p>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {[
             { icon: Users, title: "Voluntário", desc: "Receba ações personalizadas pela IA, baseadas no seu perfil, localização e disponibilidade.", color: "bg-primary", to: "/volunteer" },
-            { icon: Building2, title: "ONG · Precisa de ajuda", desc: "Crie ações, receba voluntários recomendados e acompanhe a execução em tempo real.", color: "bg-success", to: "/ong-need" },
-            { icon: HeartHandshake, title: "ONG · Oferece ajuda", desc: "Cadastre recursos disponíveis e deixe a IA encontrar quem mais precisa deles.", color: "bg-ai", to: "/ong-offer" },
+            { icon: Building2, title: "ONG", desc: "Crie ações, gerencie voluntários, cadastre recursos e conecte-se a outras instituições — tudo orquestrado por IA.", color: "bg-success", to: "/ong" },
+            { icon: HeartHandshake, title: "ONGs por ONGs", desc: "Cooperação inteligente entre instituições: a IA encontra ONGs com recursos e necessidades complementares.", color: "bg-ai", to: "/ong/network" },
           ].map((r) => {
             const Icon = r.icon;
             return (
