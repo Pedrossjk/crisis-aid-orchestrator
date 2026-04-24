@@ -45,7 +45,7 @@ function ActionsPage() {
             {actions.map((a) => {
               const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
               return (
-                <div key={a.id} className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
+                <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase flex items-center gap-1", urgencyStyles[a.urgency])}>
                       {a.urgency === "high" && <Flame className="h-3 w-3" />}

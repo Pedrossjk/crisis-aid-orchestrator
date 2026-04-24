@@ -62,13 +62,7 @@ function VolunteerHome() {
             {crises.map((c) => (
               <div
                 key={c.id}
-                className={cn(
-                  "snap-start min-w-[220px] relative overflow-hidden rounded-2xl p-4 shadow-soft transition-all hover:shadow-elegant cursor-pointer",
-                  c.severity === "high"
-                    ? "bg-gradient-to-br from-card to-urgent/8 border border-urgent/20"
-                    : "bg-gradient-to-br from-card to-warning/8 border border-warning/20"
-                )}
-              >
+                className="snap-start min-w-[220px] relative overflow-hidden p-4 shadow-soft transition-all hover:shadow-elegant cursor-pointer">
                 {/* Header: badge + região */}
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <span className={cn(

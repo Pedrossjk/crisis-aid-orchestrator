@@ -88,7 +88,8 @@ export function AppShell({ role, children }: { role: Role; children: React.React
             );
           })}
 
-          <div className="mt-auto rounded-2xl bg-gradient-ai p-4 text-ai-foreground shadow-elegant">
+          {/* Card Agente de ia do canto inferior esquerdo */}
+          {/* <div className="mt-auto rounded-2xl bg-gradient-ai p-4 text-ai-foreground shadow-elegant">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               <p className="text-xs font-bold uppercase tracking-wider">Agente IA ativo</p>
@@ -96,7 +97,7 @@ export function AppShell({ role, children }: { role: Role; children: React.React
             <p className="mt-2 text-xs opacity-90">
               Analisando 1.247 ações em tempo real para sugerir os melhores matches.
             </p>
-          </div>
+          </div> */}
         </aside>
 
         <main className="flex-1 px-4 pb-24 pt-6 md:pb-12 md:pt-8">{children}</main>
