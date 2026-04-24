@@ -16,6 +16,7 @@ import { Route as OngIndexRouteImport } from './routes/ong.index'
 import { Route as VolunteerProfileRouteImport } from './routes/volunteer.profile'
 import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
 import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
+import { Route as OngVolunteersRouteImport } from './routes/ong.volunteers'
 import { Route as OngResourcesRouteImport } from './routes/ong.resources'
 import { Route as OngProfileRouteImport } from './routes/ong.profile'
 import { Route as OngActionsRouteImport } from './routes/ong.actions'
@@ -58,6 +59,11 @@ const VolunteerMapRoute = VolunteerMapRouteImport.update({
   path: '/volunteer/map',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OngVolunteersRoute = OngVolunteersRouteImport.update({
+  id: '/ong/volunteers',
+  path: '/ong/volunteers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OngResourcesRoute = OngResourcesRouteImport.update({
   id: '/ong/resources',
   path: '/ong/resources',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/ong/actions': typeof OngActionsRoute
   '/ong/profile': typeof OngProfileRoute
   '/ong/resources': typeof OngResourcesRoute
+  '/ong/volunteers': typeof OngVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/ong/actions': typeof OngActionsRoute
   '/ong/profile': typeof OngProfileRoute
   '/ong/resources': typeof OngResourcesRoute
+  '/ong/volunteers': typeof OngVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/ong/actions': typeof OngActionsRoute
   '/ong/profile': typeof OngProfileRoute
   '/ong/resources': typeof OngResourcesRoute
+  '/ong/volunteers': typeof OngVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/ong/actions'
     | '/ong/profile'
     | '/ong/resources'
+    | '/ong/volunteers'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/ong/actions'
     | '/ong/profile'
     | '/ong/resources'
+    | '/ong/volunteers'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/ong/actions'
     | '/ong/profile'
     | '/ong/resources'
+    | '/ong/volunteers'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   OngActionsRoute: typeof OngActionsRoute
   OngProfileRoute: typeof OngProfileRoute
   OngResourcesRoute: typeof OngResourcesRoute
+  OngVolunteersRoute: typeof OngVolunteersRoute
   VolunteerMapRoute: typeof VolunteerMapRoute
   VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
   VolunteerProfileRoute: typeof VolunteerProfileRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerMapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ong/volunteers': {
+      id: '/ong/volunteers'
+      path: '/ong/volunteers'
+      fullPath: '/ong/volunteers'
+      preLoaderRoute: typeof OngVolunteersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ong/resources': {
       id: '/ong/resources'
       path: '/ong/resources'
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   OngActionsRoute: OngActionsRoute,
   OngProfileRoute: OngProfileRoute,
   OngResourcesRoute: OngResourcesRoute,
+  OngVolunteersRoute: OngVolunteersRoute,
   VolunteerMapRoute: VolunteerMapRoute,
   VolunteerNotificationsRoute: VolunteerNotificationsRoute,
   VolunteerProfileRoute: VolunteerProfileRoute,

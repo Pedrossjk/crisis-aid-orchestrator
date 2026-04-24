@@ -16,7 +16,7 @@ export const Route = createFileRoute("/onboarding")({
   component: Onboarding,
 });
 
-type Role = "volunteer" | "ong-need" | "ong-offer";
+type Role = "volunteer" | "ong";
 
 const helpOptions = [
   { id: "money", label: "Dinheiro", icon: "💰" },
@@ -43,8 +43,7 @@ function Onboarding() {
 
   const finish = () => {
     if (role === "volunteer") navigate({ to: "/volunteer" });
-    else if (role === "ong-need") navigate({ to: "/ong-need" });
-    else navigate({ to: "/ong-offer" });
+    else navigate({ to: "/ong" });
   };
 
   return (
@@ -77,9 +76,8 @@ function Onboarding() {
 
             <div className="mt-8 space-y-3">
               {[
-                { id: "volunteer", icon: Users, title: "Sou voluntário", desc: "Quero doar tempo, habilidades ou recursos pessoais.", color: "bg-primary" },
-                { id: "ong-need", icon: Building2, title: "ONG · Preciso de ajuda", desc: "Represento uma instituição que precisa mobilizar voluntários e recursos.", color: "bg-success" },
-                { id: "ong-offer", icon: HeartHandshake, title: "ONG · Ofereço ajuda", desc: "Tenho recursos, equipe ou estrutura para disponibilizar a outras instituições.", color: "bg-ai" },
+                { id: "volunteer", icon: Users, title: "Sou voluntário", desc: "Quero doar tempo, habilidades ou recursos pessoais para causas próximas a mim.", color: "bg-primary" },
+                { id: "ong", icon: Building2, title: "Represento uma ONG", desc: "Minha instituição precisa de apoio, oferece recursos a outras ONGs — ou ambos.", color: "bg-success" },
               ].map((r) => {
                 const Icon = r.icon;
                 const active = role === r.id;
