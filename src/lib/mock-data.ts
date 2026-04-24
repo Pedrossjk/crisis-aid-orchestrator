@@ -40,6 +40,25 @@ export interface Volunteer {
   distanceKm: number;
   rating: number;
   completedActions: number;
+  /** Internal-only score used by the AI to weight recommendations. Not exposed to the volunteer. */
+  reliability?: number; // 0-100
+  /** Internal tags assigned by ONGs after past actions. */
+  internalTags?: string[];
+  /** Last private review by an ONG. */
+  lastReview?: { org: string; rating: number; comment: string; date: string };
+}
+
+export interface NgoConnection {
+  id: string;
+  org: string;
+  orgInitials: string;
+  city: string;
+  topic: string;
+  matchedItem: string;
+  status: "pending" | "active" | "completed";
+  matchScore: number;
+  lastMessageAgo: string;
+  unread?: number;
 }
 
 export interface ResourceOffer {
