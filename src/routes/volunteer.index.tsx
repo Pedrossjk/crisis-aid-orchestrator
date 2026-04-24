@@ -30,10 +30,19 @@ function VolunteerHome() {
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Greeting */}
         <div>
-          <h1 className="text-2xl font-bold">Olá, Vitória 👋</h1>
+          <h1 className="text-2xl font-bold">Olá, Vitória</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             <span className="font-semibold text-ai">{recommended.length} ações ideais</span> esperando por você hoje.
           </p>
+        </div>
+
+        {/* AI recommendation strip */}
+        <div className="flex items-center gap-3 bg-gradient-hero  p-4 text-ai-foreground shadow-soft">
+          <Sparkles className="h-5 w-5 shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">Feed personalizado pela IA</p>
+            <p className="text-xs opacity-90">Ordenado por compatibilidade com suas habilidades e localização.</p>
+          </div>
         </div>
 
         {/* Compact search */}
@@ -44,37 +53,60 @@ function VolunteerHome() {
 
         {/* Crisis carousel — horizontal, compact */}
         <section>
-          <div className="mb-2 flex items-center gap-2 px-1">
-            <Flame className="h-4 w-4 text-urgent" />
-            <h2 className="text-sm font-bold">Crises ativas</h2>
+          <div className="mb-3 flex items-center gap-2 px-1">
+            <Flame className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-bold">Ações Recomendadas</h2>
             <span className="ml-auto text-[11px] text-muted-foreground">{crises.length} regiões</span>
           </div>
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 snap-x">
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-3 snap-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {crises.map((c) => (
               <div
                 key={c.id}
-                className="snap-start min-w-[240px] relative overflow-hidden rounded-2xl border border-border/60 bg-card p-4 shadow-soft"
-              >
-                {c.severity === "high" && (
-                  <span className="absolute right-3 top-3 flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-urgent opacity-60" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-urgent" />
-                  </span>
+                className={cn(
+                  "snap-start min-w-[220px] relative overflow-hidden rounded-2xl p-4 shadow-soft transition-all hover:shadow-elegant cursor-pointer",
+                  c.severity === "high"
+                    ? "bg-gradient-to-br from-card to-urgent/8 border border-urgent/20"
+                    : "bg-gradient-to-br from-card to-warning/8 border border-warning/20"
                 )}
-                <div className={cn(
-                  "absolute -right-8 -top-8 h-20 w-20 rounded-full opacity-10",
-                  c.severity === "high" ? "bg-urgent" : "bg-warning"
-                )} />
-                <p className="text-[10px] font-medium uppercase text-muted-foreground">{c.region}</p>
-                <p className="mt-1 text-sm font-bold leading-tight">{c.name}</p>
-                <div className="mt-3 flex items-center justify-between text-[11px]">
+              >
+                {/* Header: badge + região */}
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <span className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    c.severity === "high"
+                      ? "bg-urgent/10 text-urgent"
+                      : "bg-warning/10 text-warning-foreground"
+                  )}>
+                    {c.severity === "high" && (
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-urgent opacity-70" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-urgent" />
+                      </span>
+                    )}
+                    {c.severity === "high" ? "Alta urgência" : "Moderada"}
+                  </span>
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground truncate">
+                    {c.region}
+                  </span>
+                </div>
+
+                <p className="text-sm font-bold leading-snug">{c.name}</p>
+
+                <div className="my-3 h-px bg-border/60" />
+
+                {/* Stats */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-muted-foreground">Afetados</p>
-                    <p className="font-bold text-sm">{c.affected.toLocaleString("pt-BR")}</p>
+                    <p className="text-[10px] text-muted-foreground">Afetados</p>
+                    <p className="text-sm font-bold">{c.affected.toLocaleString("pt-BR")}</p>
                   </div>
+                  <div className={cn(
+                    "h-8 w-px",
+                    c.severity === "high" ? "bg-urgent/20" : "bg-warning/20"
+                  )} />
                   <div className="text-right">
-                    <p className="text-muted-foreground">Ações</p>
-                    <p className="font-bold text-sm">{c.activeActions}</p>
+                    <p className="text-[10px] text-muted-foreground">Ações ativas</p>
+                    <p className="text-sm font-bold">{c.activeActions}</p>
                   </div>
                 </div>
               </div>
@@ -82,14 +114,7 @@ function VolunteerHome() {
           </div>
         </section>
 
-        {/* AI recommendation strip */}
-        <div className="flex items-center gap-3 rounded-2xl bg-gradient-hero  p-4 text-ai-foreground shadow-soft">
-          <Sparkles className="h-5 w-5 shrink-0" />
-          <div className="flex-1 text-sm">
-            <p className="font-semibold">Feed personalizado pela IA</p>
-            <p className="text-xs opacity-90">Ordenado por compatibilidade com suas habilidades e localização.</p>
-          </div>
-        </div>
+
 
         {/* Single-column timeline */}
         <section className="space-y-4">

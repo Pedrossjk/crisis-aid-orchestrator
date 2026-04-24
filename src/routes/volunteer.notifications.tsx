@@ -25,7 +25,7 @@ export function Notifications() {
         {notifs.map((n, i) => {
           const Icon = n.icon;
           return (
-            <div key={i} className={cn("flex gap-3 rounded-2xl border p-4 shadow-soft transition", n.unread ? "border-primary/30 bg-primary/5" : "border-border/60 bg-card")}>
+            <div key={i} className={cn("flex gap-3 border p-4 shadow-soft transition", n.unread ? "border-primary/30 bg-primary/5" : "border-border/60 bg-card")}>
               <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white", n.color)}>
                 <Icon className="h-5 w-5" />
               </div>

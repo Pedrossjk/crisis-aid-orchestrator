@@ -1,4 +1,4 @@
-import { MapPin, Clock, Users, Sparkles, Share2, Bookmark, Flame, MoreHorizontal, ThumbsUp, MessageCircle } from "lucide-react";
+import { MapPin, Clock, Users, HeartHandshake, Share2, Bookmark, Flame, MoreHorizontal, ThumbsUp, MessageCircle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export function ActionPost({ action }: { action: CrisisAction }) {
 
   return (
     <article className={cn(
-      "border border-border/50 border-l-3 bg-card shadow-soft transition-all hover:shadow-elegant",
+      "bg-card shadow-soft transition-all hover:shadow-elegant",
       urgencyAccent[action.urgency]
     )}>
       {/* Header: org + meta */}
@@ -41,20 +41,16 @@ export function ActionPost({ action }: { action: CrisisAction }) {
             <p className="text-xs text-muted-foreground truncate">{action.postedAgo}</p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn("h-1.5 w-1.5 rounded-full", urgencyDot[action.urgency])} />
-            <span>{urgencyLabels[action.urgency]}</span>
-            <span>·</span>
             <MapPin className="h-3 w-3" />
             <span className="truncate">{action.location}</span>
             <span>·</span>
             <span>{action.distanceKm} km</span>
           </div>
         </div>
-        {action.isAiRecommended && (
-          <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">
-            <Sparkles className="h-2.5 w-2.5" /> Para você
-          </span>
-        )}
+        <span className={cn("hidden sm:inline-flex items-center gap-1 rounded-full bg-ai/10 px-2 py-0.5 text-[11px] text-white", urgencyDot[action.urgency])}>
+          {urgencyLabels[action.urgency]}
+        </span>
+
         <button className="rounded-lg p-1.5 hover:bg-muted transition" aria-label="Mais opções">
           <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
         </button>
@@ -63,7 +59,7 @@ export function ActionPost({ action }: { action: CrisisAction }) {
       {/* Body */}
       <div className="px-5 pt-3">
         <h3 className="text-base font-bold leading-snug flex items-center gap-2">
-          {action.urgency === "high" && <Flame className="h-4 w-4 text-urgent shrink-0" />}
+          {action.urgency === "high" && <Flame className="h-4 w-4 text-primary shrink-0" />}
           {action.title}
         </h3>
         <p className="mt-1.5 text-sm text-muted-foreground line-clamp-3">{action.description}</p>
@@ -87,16 +83,15 @@ export function ActionPost({ action }: { action: CrisisAction }) {
           <Users className="h-3.5 w-3.5 text-muted-foreground" />
           <span><strong>{action.volunteersJoined}</strong>/{action.volunteersNeeded} voluntários</span>
         </div>
-        <div className="ml-auto h-1.5 w-20 overflow-hidden rounded-full bg-background">
-          <div className={cn("h-full", urgencyDot[action.urgency])} style={{ width: `${filled}%` }} />
-        </div>
       </div>
 
       {/* Action bar */}
       <footer className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 px-3 py-2">
         <div className="flex">
           <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
-            <ThumbsUp className="h-4 w-4" /> Apoio
+            <Link className="flex gap-1.5" to="/volunteer/action/$actionId" params={{ actionId: action.id }}>
+              <HeartHandshake className="h-4 w-4" /> Quero Ajudar
+            </Link>
           </Button>
           <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
             <MessageCircle className="h-4 w-4" /> Pergunta
@@ -108,11 +103,7 @@ export function ActionPost({ action }: { action: CrisisAction }) {
             <Bookmark className="h-4 w-4" />
           </Button>
         </div>
-        <Button asChild size="sm" className="bg-primary hover:bg-primary/90">
-          <Link to="/volunteer/action/$actionId" params={{ actionId: action.id }}>
-            Quero ajudar
-          </Link>
-        </Button>
+
       </footer>
     </article>
   );

@@ -11,7 +11,7 @@ export const Route = createFileRoute("/volunteer/profile")({
 function VolunteerProfile() {
   return (
     <AppShell role="volunteer">
-      <div className="rounded-3xl bg-gradient-hero p-6 text-primary-foreground shadow-elegant">
+      <div className="bg-gradient-hero p-6 text-primary-foreground shadow-elegant">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold">VC</div>
           <div>
@@ -44,6 +44,7 @@ function VolunteerProfile() {
           </div>
         </div>
       </div>
+
 
       <div className="mt-4 rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
         <h2 className="font-bold">Histórico recente</h2>
