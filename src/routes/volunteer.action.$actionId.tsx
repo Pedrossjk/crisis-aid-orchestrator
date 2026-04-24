@@ -1,17 +1,29 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { actions, helpTypeLabels, urgencyLabels } from "@/lib/mock-data";
+import { actions, type CrisisAction, helpTypeLabels, urgencyLabels, type Urgency, type HelpType } from "@/lib/mock-data";
 import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/volunteer/action/$actionId")({
-  loader: ({ params }) => {
-    const action = actions.find((a) => a.id === params.actionId);
-    if (!action) throw notFound();
-    return { action };
-  },
-  notFoundComponent: () => (
+  head: () => ({
+    meta: [
+      { title: "Detalhes da ação — Orquestra" },
+      { name: "description", content: "Detalhes da ação de voluntariado, mapa, rota e impacto." },
+    ],
+  }),
+  component: ActionDetail,
+  notFoundComponent: NotFound,
+});
+
+const urgencyStyles: Record<Urgency, string> = {
+  high: "bg-urgent text-urgent-foreground",
+  medium: "bg-warning text-warning-foreground",
+  low: "bg-success text-success-foreground",
+};
+
+function NotFound() {
+  return (
     <AppShell role="volunteer">
       <div className="text-center py-20">
         <p className="text-lg font-bold">Ação não encontrada</p>
@@ -20,24 +32,15 @@ export const Route = createFileRoute("/volunteer/action/$actionId")({
         </Button>
       </div>
     </AppShell>
-  ),
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: `${loaderData?.action.title} — Orquestra` },
-      { name: "description", content: loaderData?.action.description ?? "" },
-    ],
-  }),
-  component: ActionDetail,
-});
-
-const urgencyStyles = {
-  high: "bg-urgent text-urgent-foreground",
-  medium: "bg-warning text-warning-foreground",
-  low: "bg-success text-success-foreground",
-};
+  );
+}
 
 function ActionDetail() {
-  const { action } = Route.useLoaderData();
+  const { actionId } = Route.useParams();
+  const action: CrisisAction | undefined = actions.find((a) => a.id === actionId);
+
+  if (!action) return <NotFound />;
+
   const filledPct = (action.volunteersJoined / action.volunteersNeeded) * 100;
 
   return (
@@ -48,7 +51,6 @@ function ActionDetail() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {/* Header */}
           <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase", urgencyStyles[action.urgency])}>
@@ -97,10 +99,8 @@ function ActionDetail() {
             <p className="mt-2 text-xs text-muted-foreground">{Math.round(filledPct)}% das vagas preenchidas</p>
           </div>
 
-          {/* Map */}
           <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
             <div className="relative h-72 bg-gradient-to-br from-primary/20 via-accent to-ai/20">
-              {/* Stylized map grid */}
               <svg className="absolute inset-0 h-full w-full opacity-40" viewBox="0 0 400 300" preserveAspectRatio="none">
                 <defs>
                   <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -110,12 +110,10 @@ function ActionDetail() {
                 <rect width="400" height="300" fill="url(#grid)" className="text-primary" />
                 <path d="M 50 250 Q 150 150 250 180 T 380 80" fill="none" stroke="oklch(0.48 0.12 215)" strokeWidth="3" strokeDasharray="8 4" />
               </svg>
-              {/* Origin */}
               <div className="absolute left-[12%] bottom-[15%] flex flex-col items-center">
                 <div className="h-3 w-3 rounded-full bg-primary ring-4 ring-primary/20" />
                 <p className="mt-1 rounded-md bg-card/90 px-2 py-0.5 text-[10px] font-semibold shadow">Você</p>
               </div>
-              {/* Destination */}
               <div className="absolute right-[15%] top-[20%] flex flex-col items-center animate-pulse-ring">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-urgent shadow-elegant">
                   <MapPin className="h-4 w-4 text-urgent-foreground" />
@@ -143,12 +141,11 @@ function ActionDetail() {
           </div>
         </div>
 
-        {/* Sidebar */}
         <aside className="space-y-4">
           <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tipos de ajuda</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {action.helpTypes.map((t) => (
+              {action.helpTypes.map((t: HelpType) => (
                 <span key={t} className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                   {helpTypeLabels[t]}
                 </span>
