@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
 import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -29,6 +30,11 @@ const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
   path: '/volunteer/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerMapRoute = VolunteerMapRouteImport.update({
+  id: '/volunteer/map',
+  path: '/volunteer/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
   id: '/volunteer/action/$actionId',
   path: '/volunteer/action/$actionId',
@@ -38,12 +44,14 @@ const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -51,18 +59,30 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/onboarding' | '/volunteer/' | '/volunteer/action/$actionId'
+  fullPaths:
+    | '/'
+    | '/onboarding'
+    | '/volunteer/map'
+    | '/volunteer/'
+    | '/volunteer/action/$actionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboarding' | '/volunteer' | '/volunteer/action/$actionId'
+  to:
+    | '/'
+    | '/onboarding'
+    | '/volunteer/map'
+    | '/volunteer'
+    | '/volunteer/action/$actionId'
   id:
     | '__root__'
     | '/'
     | '/onboarding'
+    | '/volunteer/map'
     | '/volunteer/'
     | '/volunteer/action/$actionId'
   fileRoutesById: FileRoutesById
@@ -70,6 +90,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OnboardingRoute: typeof OnboardingRoute
+  VolunteerMapRoute: typeof VolunteerMapRoute
   VolunteerIndexRoute: typeof VolunteerIndexRoute
   VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
 }
@@ -97,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer/map': {
+      id: '/volunteer/map'
+      path: '/volunteer/map'
+      fullPath: '/volunteer/map'
+      preLoaderRoute: typeof VolunteerMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer/action/$actionId': {
       id: '/volunteer/action/$actionId'
       path: '/volunteer/action/$actionId'
@@ -110,9 +138,19 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
+  VolunteerMapRoute: VolunteerMapRoute,
   VolunteerIndexRoute: VolunteerIndexRoute,
   VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
