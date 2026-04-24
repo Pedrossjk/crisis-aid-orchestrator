@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -28,35 +29,49 @@ const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
   path: '/volunteer/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
+  id: '/volunteer/action/$actionId',
+  path: '/volunteer/action/$actionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer/': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer/': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/onboarding' | '/volunteer/'
+  fullPaths: '/' | '/onboarding' | '/volunteer/' | '/volunteer/action/$actionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/onboarding' | '/volunteer'
-  id: '__root__' | '/' | '/onboarding' | '/volunteer/'
+  to: '/' | '/onboarding' | '/volunteer' | '/volunteer/action/$actionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/onboarding'
+    | '/volunteer/'
+    | '/volunteer/action/$actionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OnboardingRoute: typeof OnboardingRoute
   VolunteerIndexRoute: typeof VolunteerIndexRoute
+  VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +97,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer/action/$actionId': {
+      id: '/volunteer/action/$actionId'
+      path: '/volunteer/action/$actionId'
+      fullPath: '/volunteer/action/$actionId'
+      preLoaderRoute: typeof VolunteerActionActionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +111,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
   VolunteerIndexRoute: VolunteerIndexRoute,
+  VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
