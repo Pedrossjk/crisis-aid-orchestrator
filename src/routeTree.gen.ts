@@ -17,6 +17,9 @@ import { Route as OngNeedIndexRouteImport } from './routes/ong-need.index'
 import { Route as VolunteerProfileRouteImport } from './routes/volunteer.profile'
 import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
 import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
+import { Route as OngOfferResourcesRouteImport } from './routes/ong-offer.resources'
+import { Route as OngOfferProfileRouteImport } from './routes/ong-offer.profile'
+import { Route as OngOfferMatchesRouteImport } from './routes/ong-offer.matches'
 import { Route as OngNeedVolunteersRouteImport } from './routes/ong-need.volunteers'
 import { Route as OngNeedRequestsRouteImport } from './routes/ong-need.requests'
 import { Route as OngNeedProfileRouteImport } from './routes/ong-need.profile'
@@ -62,6 +65,21 @@ const VolunteerMapRoute = VolunteerMapRouteImport.update({
   path: '/volunteer/map',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OngOfferResourcesRoute = OngOfferResourcesRouteImport.update({
+  id: '/ong-offer/resources',
+  path: '/ong-offer/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferProfileRoute = OngOfferProfileRouteImport.update({
+  id: '/ong-offer/profile',
+  path: '/ong-offer/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferMatchesRoute = OngOfferMatchesRouteImport.update({
+  id: '/ong-offer/matches',
+  path: '/ong-offer/matches',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OngNeedVolunteersRoute = OngNeedVolunteersRouteImport.update({
   id: '/ong-need/volunteers',
   path: '/ong-need/volunteers',
@@ -89,6 +107,9 @@ export interface FileRoutesByFullPath {
   '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -103,6 +124,9 @@ export interface FileRoutesByTo {
   '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -118,6 +142,9 @@ export interface FileRoutesById {
   '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
@@ -134,6 +161,9 @@ export interface FileRouteTypes {
     | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -148,6 +178,9 @@ export interface FileRouteTypes {
     | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -162,6 +195,9 @@ export interface FileRouteTypes {
     | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
@@ -177,6 +213,9 @@ export interface RootRouteChildren {
   OngNeedProfileRoute: typeof OngNeedProfileRoute
   OngNeedRequestsRoute: typeof OngNeedRequestsRoute
   OngNeedVolunteersRoute: typeof OngNeedVolunteersRoute
+  OngOfferMatchesRoute: typeof OngOfferMatchesRoute
+  OngOfferProfileRoute: typeof OngOfferProfileRoute
+  OngOfferResourcesRoute: typeof OngOfferResourcesRoute
   VolunteerMapRoute: typeof VolunteerMapRoute
   VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
   VolunteerProfileRoute: typeof VolunteerProfileRoute
@@ -244,6 +283,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerMapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ong-offer/resources': {
+      id: '/ong-offer/resources'
+      path: '/ong-offer/resources'
+      fullPath: '/ong-offer/resources'
+      preLoaderRoute: typeof OngOfferResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/profile': {
+      id: '/ong-offer/profile'
+      path: '/ong-offer/profile'
+      fullPath: '/ong-offer/profile'
+      preLoaderRoute: typeof OngOfferProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/matches': {
+      id: '/ong-offer/matches'
+      path: '/ong-offer/matches'
+      fullPath: '/ong-offer/matches'
+      preLoaderRoute: typeof OngOfferMatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ong-need/volunteers': {
       id: '/ong-need/volunteers'
       path: '/ong-need/volunteers'
@@ -281,6 +341,9 @@ const rootRouteChildren: RootRouteChildren = {
   OngNeedProfileRoute: OngNeedProfileRoute,
   OngNeedRequestsRoute: OngNeedRequestsRoute,
   OngNeedVolunteersRoute: OngNeedVolunteersRoute,
+  OngOfferMatchesRoute: OngOfferMatchesRoute,
+  OngOfferProfileRoute: OngOfferProfileRoute,
+  OngOfferResourcesRoute: OngOfferResourcesRoute,
   VolunteerMapRoute: VolunteerMapRoute,
   VolunteerNotificationsRoute: VolunteerNotificationsRoute,
   VolunteerProfileRoute: VolunteerProfileRoute,
