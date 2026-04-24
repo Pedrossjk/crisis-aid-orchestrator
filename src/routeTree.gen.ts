@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
 import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
 import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
 
@@ -30,6 +31,11 @@ const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
   path: '/volunteer/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerNotificationsRoute = VolunteerNotificationsRouteImport.update({
+  id: '/volunteer/notifications',
+  path: '/volunteer/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolunteerMapRoute = VolunteerMapRouteImport.update({
   id: '/volunteer/map',
   path: '/volunteer/map',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
   '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/volunteer/map'
+    | '/volunteer/notifications'
     | '/volunteer/'
     | '/volunteer/action/$actionId'
   fileRoutesByTo: FileRoutesByTo
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/volunteer/map'
+    | '/volunteer/notifications'
     | '/volunteer'
     | '/volunteer/action/$actionId'
   id:
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/volunteer/map'
+    | '/volunteer/notifications'
     | '/volunteer/'
     | '/volunteer/action/$actionId'
   fileRoutesById: FileRoutesById
@@ -91,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OnboardingRoute: typeof OnboardingRoute
   VolunteerMapRoute: typeof VolunteerMapRoute
+  VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
   VolunteerIndexRoute: typeof VolunteerIndexRoute
   VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
 }
@@ -118,6 +131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer/notifications': {
+      id: '/volunteer/notifications'
+      path: '/volunteer/notifications'
+      fullPath: '/volunteer/notifications'
+      preLoaderRoute: typeof VolunteerNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer/map': {
       id: '/volunteer/map'
       path: '/volunteer/map'
@@ -139,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
   VolunteerMapRoute: VolunteerMapRoute,
+  VolunteerNotificationsRoute: VolunteerNotificationsRoute,
   VolunteerIndexRoute: VolunteerIndexRoute,
   VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
 }
