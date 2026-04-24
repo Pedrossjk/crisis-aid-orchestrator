@@ -194,10 +194,17 @@ export const actions: CrisisAction[] = [
 ];
 
 export const matchedVolunteers: Volunteer[] = [
-  { id: "v1", name: "Marina Costa", initials: "MC", skills: ["Cozinha", "Logística"], matchScore: 96, distanceKm: 1.2, rating: 4.9, completedActions: 23 },
-  { id: "v2", name: "Rafael Souza", initials: "RS", skills: ["Direção", "Resgate"], matchScore: 94, distanceKm: 3.4, rating: 4.8, completedActions: 17 },
-  { id: "v3", name: "Juliana Mendes", initials: "JM", skills: ["Saúde", "Triagem"], matchScore: 91, distanceKm: 5.1, rating: 5.0, completedActions: 41 },
-  { id: "v4", name: "Pedro Almeida", initials: "PA", skills: ["TI", "Comunicação"], matchScore: 88, distanceKm: 7.0, rating: 4.7, completedActions: 12 },
+  { id: "v1", name: "Marina Costa", initials: "MC", skills: ["Cozinha", "Logística"], matchScore: 96, distanceKm: 1.2, rating: 4.9, completedActions: 23, reliability: 94, internalTags: ["Pontual", "Líder natural"], lastReview: { org: "Mãos que Alimentam", rating: 5, comment: "Coordenou a equipe com excelência. Chegou antes do horário.", date: "há 2 semanas" } },
+  { id: "v2", name: "Rafael Souza", initials: "RS", skills: ["Direção", "Resgate"], matchScore: 94, distanceKm: 3.4, rating: 4.8, completedActions: 17, reliability: 89, internalTags: ["Veículo próprio", "Experiente"], lastReview: { org: "Patas Solidárias", rating: 5, comment: "Disponibilizou caminhonete e ajudou no resgate por 8h.", date: "há 1 mês" } },
+  { id: "v3", name: "Juliana Mendes", initials: "JM", skills: ["Saúde", "Triagem"], matchScore: 91, distanceKm: 5.1, rating: 5.0, completedActions: 41, reliability: 98, internalTags: ["Profissional certificada", "Calma sob pressão"], lastReview: { org: "Saúde Sem Fronteiras", rating: 5, comment: "Enfermeira excelente. Recomendamos para qualquer ação médica.", date: "há 3 dias" } },
+  { id: "v4", name: "Pedro Almeida", initials: "PA", skills: ["TI", "Comunicação"], matchScore: 88, distanceKm: 7.0, rating: 4.7, completedActions: 12, reliability: 76, internalTags: ["Bom comunicador"], lastReview: { org: "TechAjuda", rating: 4, comment: "Cumpriu o prazo, mas precisou de mais orientação inicial.", date: "há 2 meses" } },
+];
+
+export const ngoConnections: NgoConnection[] = [
+  { id: "n1", org: "Cruz Verde Brasil", orgInitials: "CV", city: "Blumenau, SC", topic: "Cestas básicas", matchedItem: "300 cestas → 80 famílias", status: "active", matchScore: 96, lastMessageAgo: "há 12min", unread: 2 },
+  { id: "n2", org: "Patas Solidárias", orgInitials: "PS", city: "Itajaí, SC", topic: "Transporte de animais", matchedItem: "5 caminhões → resgate de 200 animais", status: "active", matchScore: 92, lastMessageAgo: "há 1h" },
+  { id: "n3", org: "Saúde Sem Fronteiras", orgInitials: "SF", city: "Florianópolis, SC", topic: "Equipe médica", matchedItem: "12 profissionais → triagem em abrigo", status: "pending", matchScore: 88, lastMessageAgo: "há 3h" },
+  { id: "n4", org: "Mãos que Alimentam", orgInitials: "MA", city: "Brusque, SC", topic: "Cobertores", matchedItem: "1.200 itens → famílias desabrigadas", status: "completed", matchScore: 94, lastMessageAgo: "há 2 dias" },
 ];
 
 export const resourceOffers: ResourceOffer[] = [
