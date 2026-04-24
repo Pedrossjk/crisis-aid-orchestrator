@@ -12,10 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as OngIndexRouteImport } from './routes/ong.index'
 import { Route as VolunteerProfileRouteImport } from './routes/volunteer.profile'
 import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
 import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
+import { Route as OngResourcesRouteImport } from './routes/ong.resources'
+import { Route as OngProfileRouteImport } from './routes/ong.profile'
+import { Route as OngActionsRouteImport } from './routes/ong.actions'
+import { Route as OngNetworkIndexRouteImport } from './routes/ong.network.index'
 import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
+import { Route as OngNetworkConnectionIdRouteImport } from './routes/ong.network.$connectionId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -30,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
 const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
   id: '/volunteer/',
   path: '/volunteer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngIndexRoute = OngIndexRouteImport.update({
+  id: '/ong/',
+  path: '/ong/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VolunteerProfileRoute = VolunteerProfileRouteImport.update({
@@ -47,78 +58,145 @@ const VolunteerMapRoute = VolunteerMapRouteImport.update({
   path: '/volunteer/map',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OngResourcesRoute = OngResourcesRouteImport.update({
+  id: '/ong/resources',
+  path: '/ong/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngProfileRoute = OngProfileRouteImport.update({
+  id: '/ong/profile',
+  path: '/ong/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngActionsRoute = OngActionsRouteImport.update({
+  id: '/ong/actions',
+  path: '/ong/actions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNetworkIndexRoute = OngNetworkIndexRouteImport.update({
+  id: '/ong/network/',
+  path: '/ong/network/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
   id: '/volunteer/action/$actionId',
   path: '/volunteer/action/$actionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNetworkConnectionIdRoute = OngNetworkConnectionIdRouteImport.update({
+  id: '/ong/network/$connectionId',
+  path: '/ong/network/$connectionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong/actions': typeof OngActionsRoute
+  '/ong/profile': typeof OngProfileRoute
+  '/ong/resources': typeof OngResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong/': typeof OngIndexRoute
   '/volunteer/': typeof VolunteerIndexRoute
+  '/ong/network/$connectionId': typeof OngNetworkConnectionIdRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
+  '/ong/network/': typeof OngNetworkIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong/actions': typeof OngActionsRoute
+  '/ong/profile': typeof OngProfileRoute
+  '/ong/resources': typeof OngResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong': typeof OngIndexRoute
   '/volunteer': typeof VolunteerIndexRoute
+  '/ong/network/$connectionId': typeof OngNetworkConnectionIdRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
+  '/ong/network': typeof OngNetworkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong/actions': typeof OngActionsRoute
+  '/ong/profile': typeof OngProfileRoute
+  '/ong/resources': typeof OngResourcesRoute
   '/volunteer/map': typeof VolunteerMapRoute
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong/': typeof OngIndexRoute
   '/volunteer/': typeof VolunteerIndexRoute
+  '/ong/network/$connectionId': typeof OngNetworkConnectionIdRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
+  '/ong/network/': typeof OngNetworkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/onboarding'
+    | '/ong/actions'
+    | '/ong/profile'
+    | '/ong/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
+    | '/ong/'
     | '/volunteer/'
+    | '/ong/network/$connectionId'
     | '/volunteer/action/$actionId'
+    | '/ong/network/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/onboarding'
+    | '/ong/actions'
+    | '/ong/profile'
+    | '/ong/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
+    | '/ong'
     | '/volunteer'
+    | '/ong/network/$connectionId'
     | '/volunteer/action/$actionId'
+    | '/ong/network'
   id:
     | '__root__'
     | '/'
     | '/onboarding'
+    | '/ong/actions'
+    | '/ong/profile'
+    | '/ong/resources'
     | '/volunteer/map'
     | '/volunteer/notifications'
     | '/volunteer/profile'
+    | '/ong/'
     | '/volunteer/'
+    | '/ong/network/$connectionId'
     | '/volunteer/action/$actionId'
+    | '/ong/network/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OnboardingRoute: typeof OnboardingRoute
+  OngActionsRoute: typeof OngActionsRoute
+  OngProfileRoute: typeof OngProfileRoute
+  OngResourcesRoute: typeof OngResourcesRoute
   VolunteerMapRoute: typeof VolunteerMapRoute
   VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
   VolunteerProfileRoute: typeof VolunteerProfileRoute
+  OngIndexRoute: typeof OngIndexRoute
   VolunteerIndexRoute: typeof VolunteerIndexRoute
+  OngNetworkConnectionIdRoute: typeof OngNetworkConnectionIdRoute
   VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
+  OngNetworkIndexRoute: typeof OngNetworkIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -144,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ong/': {
+      id: '/ong/'
+      path: '/ong'
+      fullPath: '/ong/'
+      preLoaderRoute: typeof OngIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer/profile': {
       id: '/volunteer/profile'
       path: '/volunteer/profile'
@@ -165,11 +250,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VolunteerMapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ong/resources': {
+      id: '/ong/resources'
+      path: '/ong/resources'
+      fullPath: '/ong/resources'
+      preLoaderRoute: typeof OngResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong/profile': {
+      id: '/ong/profile'
+      path: '/ong/profile'
+      fullPath: '/ong/profile'
+      preLoaderRoute: typeof OngProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong/actions': {
+      id: '/ong/actions'
+      path: '/ong/actions'
+      fullPath: '/ong/actions'
+      preLoaderRoute: typeof OngActionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong/network/': {
+      id: '/ong/network/'
+      path: '/ong/network'
+      fullPath: '/ong/network/'
+      preLoaderRoute: typeof OngNetworkIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer/action/$actionId': {
       id: '/volunteer/action/$actionId'
       path: '/volunteer/action/$actionId'
       fullPath: '/volunteer/action/$actionId'
       preLoaderRoute: typeof VolunteerActionActionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong/network/$connectionId': {
+      id: '/ong/network/$connectionId'
+      path: '/ong/network/$connectionId'
+      fullPath: '/ong/network/$connectionId'
+      preLoaderRoute: typeof OngNetworkConnectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -178,21 +298,18 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
+  OngActionsRoute: OngActionsRoute,
+  OngProfileRoute: OngProfileRoute,
+  OngResourcesRoute: OngResourcesRoute,
   VolunteerMapRoute: VolunteerMapRoute,
   VolunteerNotificationsRoute: VolunteerNotificationsRoute,
   VolunteerProfileRoute: VolunteerProfileRoute,
+  OngIndexRoute: OngIndexRoute,
   VolunteerIndexRoute: VolunteerIndexRoute,
+  OngNetworkConnectionIdRoute: OngNetworkConnectionIdRoute,
   VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
+  OngNetworkIndexRoute: OngNetworkIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
