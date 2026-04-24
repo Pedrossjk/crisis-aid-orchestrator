@@ -9,38 +9,231 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as OngOfferIndexRouteImport } from './routes/ong-offer.index'
+import { Route as OngNeedIndexRouteImport } from './routes/ong-need.index'
+import { Route as VolunteerProfileRouteImport } from './routes/volunteer.profile'
+import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
+import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
+import { Route as OngOfferResourcesRouteImport } from './routes/ong-offer.resources'
+import { Route as OngOfferProfileRouteImport } from './routes/ong-offer.profile'
+import { Route as OngOfferMatchesRouteImport } from './routes/ong-offer.matches'
+import { Route as OngNeedVolunteersRouteImport } from './routes/ong-need.volunteers'
+import { Route as OngNeedRequestsRouteImport } from './routes/ong-need.requests'
+import { Route as OngNeedProfileRouteImport } from './routes/ong-need.profile'
+import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
+  id: '/volunteer/',
+  path: '/volunteer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferIndexRoute = OngOfferIndexRouteImport.update({
+  id: '/ong-offer/',
+  path: '/ong-offer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNeedIndexRoute = OngNeedIndexRouteImport.update({
+  id: '/ong-need/',
+  path: '/ong-need/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VolunteerProfileRoute = VolunteerProfileRouteImport.update({
+  id: '/volunteer/profile',
+  path: '/volunteer/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VolunteerNotificationsRoute = VolunteerNotificationsRouteImport.update({
+  id: '/volunteer/notifications',
+  path: '/volunteer/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VolunteerMapRoute = VolunteerMapRouteImport.update({
+  id: '/volunteer/map',
+  path: '/volunteer/map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferResourcesRoute = OngOfferResourcesRouteImport.update({
+  id: '/ong-offer/resources',
+  path: '/ong-offer/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferProfileRoute = OngOfferProfileRouteImport.update({
+  id: '/ong-offer/profile',
+  path: '/ong-offer/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferMatchesRoute = OngOfferMatchesRouteImport.update({
+  id: '/ong-offer/matches',
+  path: '/ong-offer/matches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNeedVolunteersRoute = OngNeedVolunteersRouteImport.update({
+  id: '/ong-need/volunteers',
+  path: '/ong-need/volunteers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNeedRequestsRoute = OngNeedRequestsRouteImport.update({
+  id: '/ong-need/requests',
+  path: '/ong-need/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngNeedProfileRoute = OngNeedProfileRouteImport.update({
+  id: '/ong-need/profile',
+  path: '/ong-need/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
+  id: '/volunteer/action/$actionId',
+  path: '/volunteer/action/$actionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
+  '/ong-need/requests': typeof OngNeedRequestsRoute
+  '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
+  '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
+  '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong-need/': typeof OngNeedIndexRoute
+  '/ong-offer/': typeof OngOfferIndexRoute
+  '/volunteer/': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
+  '/ong-need/requests': typeof OngNeedRequestsRoute
+  '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
+  '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
+  '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong-need': typeof OngNeedIndexRoute
+  '/ong-offer': typeof OngOfferIndexRoute
+  '/volunteer': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
+  '/ong-need/requests': typeof OngNeedRequestsRoute
+  '/ong-need/volunteers': typeof OngNeedVolunteersRoute
+  '/ong-offer/matches': typeof OngOfferMatchesRoute
+  '/ong-offer/profile': typeof OngOfferProfileRoute
+  '/ong-offer/resources': typeof OngOfferResourcesRoute
+  '/volunteer/map': typeof VolunteerMapRoute
+  '/volunteer/notifications': typeof VolunteerNotificationsRoute
+  '/volunteer/profile': typeof VolunteerProfileRoute
+  '/ong-need/': typeof OngNeedIndexRoute
+  '/ong-offer/': typeof OngOfferIndexRoute
+  '/volunteer/': typeof VolunteerIndexRoute
+  '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/onboarding'
+    | '/ong-need/profile'
+    | '/ong-need/requests'
+    | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
+    | '/volunteer/map'
+    | '/volunteer/notifications'
+    | '/volunteer/profile'
+    | '/ong-need/'
+    | '/ong-offer/'
+    | '/volunteer/'
+    | '/volunteer/action/$actionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/onboarding'
+    | '/ong-need/profile'
+    | '/ong-need/requests'
+    | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
+    | '/volunteer/map'
+    | '/volunteer/notifications'
+    | '/volunteer/profile'
+    | '/ong-need'
+    | '/ong-offer'
+    | '/volunteer'
+    | '/volunteer/action/$actionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/onboarding'
+    | '/ong-need/profile'
+    | '/ong-need/requests'
+    | '/ong-need/volunteers'
+    | '/ong-offer/matches'
+    | '/ong-offer/profile'
+    | '/ong-offer/resources'
+    | '/volunteer/map'
+    | '/volunteer/notifications'
+    | '/volunteer/profile'
+    | '/ong-need/'
+    | '/ong-offer/'
+    | '/volunteer/'
+    | '/volunteer/action/$actionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OnboardingRoute: typeof OnboardingRoute
+  OngNeedProfileRoute: typeof OngNeedProfileRoute
+  OngNeedRequestsRoute: typeof OngNeedRequestsRoute
+  OngNeedVolunteersRoute: typeof OngNeedVolunteersRoute
+  OngOfferMatchesRoute: typeof OngOfferMatchesRoute
+  OngOfferProfileRoute: typeof OngOfferProfileRoute
+  OngOfferResourcesRoute: typeof OngOfferResourcesRoute
+  VolunteerMapRoute: typeof VolunteerMapRoute
+  VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
+  VolunteerProfileRoute: typeof VolunteerProfileRoute
+  OngNeedIndexRoute: typeof OngNeedIndexRoute
+  OngOfferIndexRoute: typeof OngOfferIndexRoute
+  VolunteerIndexRoute: typeof VolunteerIndexRoute
+  VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +241,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteer/': {
+      id: '/volunteer/'
+      path: '/volunteer'
+      fullPath: '/volunteer/'
+      preLoaderRoute: typeof VolunteerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/': {
+      id: '/ong-offer/'
+      path: '/ong-offer'
+      fullPath: '/ong-offer/'
+      preLoaderRoute: typeof OngOfferIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-need/': {
+      id: '/ong-need/'
+      path: '/ong-need'
+      fullPath: '/ong-need/'
+      preLoaderRoute: typeof OngNeedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volunteer/profile': {
+      id: '/volunteer/profile'
+      path: '/volunteer/profile'
+      fullPath: '/volunteer/profile'
+      preLoaderRoute: typeof VolunteerProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volunteer/notifications': {
+      id: '/volunteer/notifications'
+      path: '/volunteer/notifications'
+      fullPath: '/volunteer/notifications'
+      preLoaderRoute: typeof VolunteerNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volunteer/map': {
+      id: '/volunteer/map'
+      path: '/volunteer/map'
+      fullPath: '/volunteer/map'
+      preLoaderRoute: typeof VolunteerMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/resources': {
+      id: '/ong-offer/resources'
+      path: '/ong-offer/resources'
+      fullPath: '/ong-offer/resources'
+      preLoaderRoute: typeof OngOfferResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/profile': {
+      id: '/ong-offer/profile'
+      path: '/ong-offer/profile'
+      fullPath: '/ong-offer/profile'
+      preLoaderRoute: typeof OngOfferProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/matches': {
+      id: '/ong-offer/matches'
+      path: '/ong-offer/matches'
+      fullPath: '/ong-offer/matches'
+      preLoaderRoute: typeof OngOfferMatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-need/volunteers': {
+      id: '/ong-need/volunteers'
+      path: '/ong-need/volunteers'
+      fullPath: '/ong-need/volunteers'
+      preLoaderRoute: typeof OngNeedVolunteersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-need/requests': {
+      id: '/ong-need/requests'
+      path: '/ong-need/requests'
+      fullPath: '/ong-need/requests'
+      preLoaderRoute: typeof OngNeedRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-need/profile': {
+      id: '/ong-need/profile'
+      path: '/ong-need/profile'
+      fullPath: '/ong-need/profile'
+      preLoaderRoute: typeof OngNeedProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volunteer/action/$actionId': {
+      id: '/volunteer/action/$actionId'
+      path: '/volunteer/action/$actionId'
+      fullPath: '/volunteer/action/$actionId'
+      preLoaderRoute: typeof VolunteerActionActionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OnboardingRoute: OnboardingRoute,
+  OngNeedProfileRoute: OngNeedProfileRoute,
+  OngNeedRequestsRoute: OngNeedRequestsRoute,
+  OngNeedVolunteersRoute: OngNeedVolunteersRoute,
+  OngOfferMatchesRoute: OngOfferMatchesRoute,
+  OngOfferProfileRoute: OngOfferProfileRoute,
+  OngOfferResourcesRoute: OngOfferResourcesRoute,
+  VolunteerMapRoute: VolunteerMapRoute,
+  VolunteerNotificationsRoute: VolunteerNotificationsRoute,
+  VolunteerProfileRoute: VolunteerProfileRoute,
+  OngNeedIndexRoute: OngNeedIndexRoute,
+  OngOfferIndexRoute: OngOfferIndexRoute,
+  VolunteerIndexRoute: VolunteerIndexRoute,
+  VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
