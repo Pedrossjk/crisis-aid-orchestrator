@@ -18,6 +18,7 @@ import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.n
 import { Route as VolunteerMapRouteImport } from './routes/volunteer.map'
 import { Route as OngNeedVolunteersRouteImport } from './routes/ong-need.volunteers'
 import { Route as OngNeedRequestsRouteImport } from './routes/ong-need.requests'
+import { Route as OngNeedProfileRouteImport } from './routes/ong-need.profile'
 import { Route as VolunteerActionActionIdRouteImport } from './routes/volunteer.action.$actionId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -65,6 +66,11 @@ const OngNeedRequestsRoute = OngNeedRequestsRouteImport.update({
   path: '/ong-need/requests',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OngNeedProfileRoute = OngNeedProfileRouteImport.update({
+  id: '/ong-need/profile',
+  path: '/ong-need/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
   id: '/volunteer/action/$actionId',
   path: '/volunteer/action/$actionId',
@@ -74,6 +80,7 @@ const VolunteerActionActionIdRoute = VolunteerActionActionIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/ong-need/profile': typeof OngNeedProfileRoute
   '/ong-need/requests': typeof OngNeedRequestsRoute
   '/ong-need/volunteers': typeof OngNeedVolunteersRoute
   '/volunteer/map': typeof VolunteerMapRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
+    | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
     | '/volunteer/map'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding'
+    | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
     | '/volunteer/map'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/onboarding'
+    | '/ong-need/profile'
     | '/ong-need/requests'
     | '/ong-need/volunteers'
     | '/volunteer/map'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   OnboardingRoute: typeof OnboardingRoute
+  OngNeedProfileRoute: typeof OngNeedProfileRoute
   OngNeedRequestsRoute: typeof OngNeedRequestsRoute
   OngNeedVolunteersRoute: typeof OngNeedVolunteersRoute
   VolunteerMapRoute: typeof VolunteerMapRoute
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OngNeedRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ong-need/profile': {
+      id: '/ong-need/profile'
+      path: '/ong-need/profile'
+      fullPath: '/ong-need/profile'
+      preLoaderRoute: typeof OngNeedProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/volunteer/action/$actionId': {
       id: '/volunteer/action/$actionId'
       path: '/volunteer/action/$actionId'
@@ -238,6 +258,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRoute: OnboardingRoute,
+  OngNeedProfileRoute: OngNeedProfileRoute,
   OngNeedRequestsRoute: OngNeedRequestsRoute,
   OngNeedVolunteersRoute: OngNeedVolunteersRoute,
   VolunteerMapRoute: VolunteerMapRoute,
