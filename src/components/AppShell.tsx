@@ -53,7 +53,9 @@ export function AppShell({ role, children }: { role: Role; children: React.React
               {roleMeta.label}
             </span>
             <button className="relative rounded-lg p-2 hover:bg-muted transition" aria-label="Notificações">
-              <Bell className="h-5 w-5" />
+              <Link href="/volunteer/notifications">
+                <Bell className="h-5 w-5" />
+              </Link>
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-urgent animate-pulse" />
             </button>
             <div className="h-9 w-9 rounded-full bg-gradient-hero flex items-center justify-center text-primary-foreground text-sm font-semibold">
