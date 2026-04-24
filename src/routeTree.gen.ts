@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VolunteerIndexRouteImport } from './routes/volunteer.index'
+import { Route as OngOfferIndexRouteImport } from './routes/ong-offer.index'
 import { Route as OngNeedIndexRouteImport } from './routes/ong-need.index'
 import { Route as VolunteerProfileRouteImport } from './routes/volunteer.profile'
 import { Route as VolunteerNotificationsRouteImport } from './routes/volunteer.notifications'
@@ -34,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 const VolunteerIndexRoute = VolunteerIndexRouteImport.update({
   id: '/volunteer/',
   path: '/volunteer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OngOfferIndexRoute = OngOfferIndexRouteImport.update({
+  id: '/ong-offer/',
+  path: '/ong-offer/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OngNeedIndexRoute = OngNeedIndexRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
   '/ong-need/': typeof OngNeedIndexRoute
+  '/ong-offer/': typeof OngOfferIndexRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
   '/ong-need': typeof OngNeedIndexRoute
+  '/ong-offer': typeof OngOfferIndexRoute
   '/volunteer': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/volunteer/notifications': typeof VolunteerNotificationsRoute
   '/volunteer/profile': typeof VolunteerProfileRoute
   '/ong-need/': typeof OngNeedIndexRoute
+  '/ong-offer/': typeof OngOfferIndexRoute
   '/volunteer/': typeof VolunteerIndexRoute
   '/volunteer/action/$actionId': typeof VolunteerActionActionIdRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/volunteer/notifications'
     | '/volunteer/profile'
     | '/ong-need/'
+    | '/ong-offer/'
     | '/volunteer/'
     | '/volunteer/action/$actionId'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/volunteer/notifications'
     | '/volunteer/profile'
     | '/ong-need'
+    | '/ong-offer'
     | '/volunteer'
     | '/volunteer/action/$actionId'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/volunteer/notifications'
     | '/volunteer/profile'
     | '/ong-need/'
+    | '/ong-offer/'
     | '/volunteer/'
     | '/volunteer/action/$actionId'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   VolunteerNotificationsRoute: typeof VolunteerNotificationsRoute
   VolunteerProfileRoute: typeof VolunteerProfileRoute
   OngNeedIndexRoute: typeof OngNeedIndexRoute
+  OngOfferIndexRoute: typeof OngOfferIndexRoute
   VolunteerIndexRoute: typeof VolunteerIndexRoute
   VolunteerActionActionIdRoute: typeof VolunteerActionActionIdRoute
 }
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/volunteer'
       fullPath: '/volunteer/'
       preLoaderRoute: typeof VolunteerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ong-offer/': {
+      id: '/ong-offer/'
+      path: '/ong-offer'
+      fullPath: '/ong-offer/'
+      preLoaderRoute: typeof OngOfferIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ong-need/': {
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   VolunteerNotificationsRoute: VolunteerNotificationsRoute,
   VolunteerProfileRoute: VolunteerProfileRoute,
   OngNeedIndexRoute: OngNeedIndexRoute,
+  OngOfferIndexRoute: OngOfferIndexRoute,
   VolunteerIndexRoute: VolunteerIndexRoute,
   VolunteerActionActionIdRoute: VolunteerActionActionIdRoute,
 }
