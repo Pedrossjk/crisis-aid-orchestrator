@@ -68,7 +68,7 @@ function OngDashboard() {
         ].map((k) => {
           const Icon = k.icon;
           return (
-            <div key={k.label} className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+            <div key={k.label} className="border border-border/60 bg-card p-4 shadow-soft">
               <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", k.bg)}>
                 <Icon className={cn("h-5 w-5", k.color)} />
               </div>
@@ -93,7 +93,7 @@ function OngDashboard() {
             {open.slice(0, 3).map((a) => {
               const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
               return (
-                <div key={a.id} className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+                <div key={a.id} className="border border-border/60 bg-card p-4 shadow-soft">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -132,7 +132,7 @@ function OngDashboard() {
           </div>
           <div className="space-y-3">
             {matchedVolunteers.slice(0, 3).map((v) => (
-              <div key={v.id} className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+              <div key={v.id} className="flex items-center gap-3 border border-border/60 bg-card p-4 shadow-soft">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold">
                   {v.initials}
                 </div>
@@ -168,7 +168,7 @@ function OngDashboard() {
               key={c.id}
               to="/ong/network/$connectionId"
               params={{ connectionId: c.id }}
-              className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft hover:shadow-elegant transition-all hover:-translate-y-0.5"
+              className="border border-border/60 bg-card p-4 shadow-soft hover:shadow-elegant transition-all hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold text-sm">{c.orgInitials}</div>

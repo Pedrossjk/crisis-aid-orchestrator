@@ -37,7 +37,7 @@ function NetworkPage() {
           {resourceOffers.slice(0, 3).map((r, i) => {
             const need = requests[i];
             return (
-              <div key={r.id} className="rounded-2xl border border-ai/30 bg-card p-5 shadow-elegant">
+              <div key={r.id} className="border border-ai/30 bg-card p-5 shadow-elegant">
                 <div className="flex items-center justify-between">
                   <span className="rounded-full bg-gradient-ai px-3 py-1 text-[10px] font-bold text-ai-foreground">MATCH {92 - i * 4}%</span>
                   <span className="text-xs text-muted-foreground">há {i + 1}h</span>
