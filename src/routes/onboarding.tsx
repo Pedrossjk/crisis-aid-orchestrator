@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Users, Building2, HeartHandshake, ArrowRight, ArrowLeft, Check, MapPin, Clock, Sparkles, Wrench, Car } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, Building2, HeartHandshake, ArrowRight, ArrowLeft, Check, MapPin, Clock, Sparkles, Wrench, Car, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -32,18 +34,87 @@ const resourceOptions = ["Carro", "Caminhão", "Ferramentas", "Espaço físico",
 
 function Onboarding() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [role, setRole] = useState<Role | null>(null);
   const [help, setHelp] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [resources, setResources] = useState<string[]>([]);
+  // Campos do formulário do passo 1 (controlados para enviar ao banco)
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [availability, setAvailability] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Se não estiver autenticado, manda para /auth (signup) antes do onboarding
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/auth" });
+    }
+  }, [authLoading, user, navigate]);
 
   const toggle = (arr: string[], v: string, set: (a: string[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
-  const finish = () => {
-    if (role === "volunteer") navigate({ to: "/volunteer" });
-    else navigate({ to: "/ong" });
+  // Persiste todo o onboarding no Supabase e redireciona conforme o role
+  const finish = async () => {
+    if (!user || !role) return;
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      // 1) Atualiza o perfil base (criado pelo trigger handle_new_user)
+      const [cityName, stateName] = city.split("/").map((s) => s.trim());
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({
+          full_name: name || null,
+          phone: phone || null,
+          city: cityName || null,
+          state: stateName || null,
+        })
+        .eq("id", user.id);
+      if (profileErr) throw profileErr;
+
+      // 2) Garante o role na tabela user_roles (chave: volunteer | ngo)
+      const dbRole = role === "ong" ? "ngo" : "volunteer";
+      await supabase
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: dbRole }, { onConflict: "user_id,role" });
+
+      // 3) Cria o registro específico do tipo de usuário
+      if (role === "volunteer") {
+        await supabase.from("volunteers").upsert({
+          id: user.id,
+          skills,
+          help_types: help,
+          resources,
+          availability,
+        });
+        navigate({ to: "/volunteer" });
+      } else {
+        // ONG - cria registro mínimo; usuário completa depois no perfil
+        await supabase.from("ngos").upsert(
+          {
+            owner_id: user.id,
+            name: name || "Minha ONG",
+            city: cityName || null,
+            state: stateName || null,
+            offers: help, // o que a ONG oferece (pode editar depois)
+            needs: [],
+          },
+          { onConflict: "owner_id" }
+        );
+        navigate({ to: "/ong" });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao salvar dados";
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -114,30 +185,41 @@ function Onboarding() {
             <div className="mt-8 space-y-4">
               <div>
                 <Label htmlFor="name">Nome completo</Label>
-                <Input id="name" placeholder="Maria Silva" className="mt-1.5" />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Silva" className="mt-1.5" />
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" placeholder="maria@email.com" className="mt-1.5" />
+                  <Input id="email" type="email" value={user?.email ?? ""} disabled placeholder="maria@email.com" className="mt-1.5" />
                 </div>
                 <div>
                   <Label htmlFor="phone">WhatsApp</Label>
-                  <Input id="phone" placeholder="(00) 00000-0000" className="mt-1.5" />
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" className="mt-1.5" />
                 </div>
               </div>
               <div>
                 <Label htmlFor="loc"><MapPin className="inline h-3.5 w-3.5 mr-1" />Localização</Label>
-                <Input id="loc" placeholder="Cidade / Estado" className="mt-1.5" />
+                <Input id="loc" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade / Estado" className="mt-1.5" />
               </div>
               <div>
                 <Label><Clock className="inline h-3.5 w-3.5 mr-1" />Disponibilidade</Label>
                 <div className="mt-1.5 flex flex-wrap gap-2">
-                  {["Manhãs", "Tardes", "Noites", "Fins de semana", "Plantão"].map((d) => (
-                    <button key={d} className="rounded-full border border-border bg-card px-3 py-1.5 text-sm hover:border-primary hover:bg-primary/5">
-                      {d}
-                    </button>
-                  ))}
+                  {["Manhãs", "Tardes", "Noites", "Fins de semana", "Plantão"].map((d) => {
+                    const active = availability.includes(d);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => toggle(availability, d, setAvailability)}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-sm transition",
+                          active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"
+                        )}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -241,8 +323,11 @@ function Onboarding() {
         )}
 
         {/* Nav */}
+        {saveError && (
+          <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{saveError}</p>
+        )}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
+          <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
           {step < 3 ? (
@@ -250,8 +335,9 @@ function Onboarding() {
               Continuar <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={finish} className="bg-gradient-hero shadow-elegant">
-              Acessar plataforma <ArrowRight className="ml-1 h-4 w-4" />
+            <Button onClick={finish} disabled={saving} className="bg-gradient-hero shadow-elegant">
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Acessar plataforma {!saving && <ArrowRight className="ml-1 h-4 w-4" />}
             </Button>
           )}
         </div>

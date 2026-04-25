@@ -29,7 +29,7 @@ function Landing() {
           </div>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link to="/onboarding">Entrar</Link>
+          <Link to="/auth">Entrar</Link>
         </Button>
       </header>
 

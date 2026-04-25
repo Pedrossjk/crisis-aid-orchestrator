@@ -52,12 +52,14 @@ export function AppShell({ role, children }: { role: Role; children: React.React
               <span className="h-1.5 w-1.5 rounded-full bg-white/80 animate-pulse" />
               {roleMeta.label}
             </span>
-            <button className="relative rounded-lg p-2 hover:bg-muted transition" aria-label="Notificações">
-              <Link href="/volunteer/notifications">
-                <Bell className="h-5 w-5" />
-              </Link>
+            <Link
+              to="/volunteer/notifications"
+              className="relative rounded-lg p-2 hover:bg-muted transition"
+              aria-label="Notificações"
+            >
+              <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-urgent animate-pulse" />
-            </button>
+            </Link>
             <div className="h-9 w-9 rounded-full bg-gradient-hero flex items-center justify-center text-primary-foreground text-sm font-semibold">
               {role === "volunteer" ? "VC" : "CV"}
             </div>
