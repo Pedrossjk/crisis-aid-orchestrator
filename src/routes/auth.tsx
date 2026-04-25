@@ -26,53 +26,36 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
 
-  // Modo: 'login' (entrar) ou 'signup' (criar conta)
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handler do submit do formulário
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    if (mode === "signup") {
-      // Cadastro: cria conta + perfil (via trigger no banco)
-      const { error } = await signUp(email, password, fullName);
-      if (error) {
-        setError(traduzirErro(error.message));
-        setLoading(false);
-        return;
-      }
-      // Após signup, leva ao onboarding para escolher role e preferências
-      navigate({ to: "/onboarding" });
-    } else {
-      // Login: autentica e descobre o role para redirecionar
-      const { error } = await signIn(email, password);
-      if (error) {
-        setError(traduzirErro(error.message));
-        setLoading(false);
-        return;
-      }
-      // Busca o role do usuário em user_roles para decidir destino
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        const { data: roleRow } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userData.user.id)
-          .maybeSingle();
+    const { error } = await signIn(email, password);
+    if (error) {
+      setError(traduzirErro(error.message));
+      setLoading(false);
+      return;
+    }
 
-        if (roleRow?.role === "ngo") navigate({ to: "/ong" });
-        else if (roleRow?.role === "volunteer") navigate({ to: "/volunteer" });
-        else navigate({ to: "/onboarding" }); // sem role → completa cadastro
-      }
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user) {
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+
+      if (roleRow?.role === "ngo") navigate({ to: "/ong" });
+      else if (roleRow?.role === "volunteer") navigate({ to: "/volunteer" });
+      else navigate({ to: "/onboarding" });
     }
     setLoading(false);
   };
@@ -93,30 +76,12 @@ function AuthPage() {
 
       <div className="mx-auto max-w-md px-4 py-10">
         <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-elegant md:p-8">
-          <h1 className="text-2xl font-bold">
-            {mode === "login" ? "Bem-vindo de volta" : "Criar sua conta"}
-          </h1>
+          <h1 className="text-2xl font-bold">Bem-vindo de volta</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {mode === "login"
-              ? "Entre para acessar suas ações e voluntários."
-              : "Em poucos passos você faz parte da rede de ajuda."}
+            Entre para acessar suas ações e voluntários.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            {/* Nome completo só aparece no signup */}
-            {mode === "signup" && (
-              <div>
-                <Label htmlFor="name">Nome completo</Label>
-                <Input
-                  id="name"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Maria Silva"
-                  className="mt-1.5"
-                />
-              </div>
-            )}
             <div>
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -143,7 +108,6 @@ function AuthPage() {
               />
             </div>
 
-            {/* Mensagem de erro traduzida */}
             {error && (
               <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
@@ -152,22 +116,15 @@ function AuthPage() {
 
             <Button type="submit" disabled={loading} className="w-full bg-gradient-hero shadow-soft">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === "login" ? "Entrar" : "Criar conta"}
+              Entrar
             </Button>
           </form>
 
-          {/* Toggle entre login e signup */}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            {mode === "login" ? "Ainda não tem conta?" : "Já tem conta?"}{" "}
-            <button
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setError(null);
-              }}
-              className="font-semibold text-primary hover:underline"
-            >
-              {mode === "login" ? "Cadastre-se" : "Entrar"}
-            </button>
+            Ainda não tem conta?{" "}
+            <Link to="/onboarding" className="font-semibold text-primary hover:underline">
+              Cadastre-se
+            </Link>
           </p>
         </div>
       </div>

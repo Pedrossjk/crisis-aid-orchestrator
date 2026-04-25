@@ -55,9 +55,13 @@ const ongNeedOptions = [
 
 function Onboarding() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const [step, setStep] = useState(0);
+  const { user, loading: authLoading, signUp } = useAuth();
+  const [step, setStep] = useState(-1);
   const [role, setRole] = useState<Role | null>(null);
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
   const [help, setHelp] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [resources, setResources] = useState<string[]>([]);
@@ -78,12 +82,12 @@ function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Se não estiver autenticado, manda para /auth (signup) antes do onboarding
+  // Se já estiver autenticado (ex: acesso direto), pula a etapa de criação de conta
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate({ to: "/auth" });
+    if (!authLoading && user && step === -1) {
+      setStep(0);
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, step]);
 
   const toggle = (arr: string[], v: string, set: (a: string[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -149,6 +153,19 @@ function Onboarding() {
     }
   };
 
+  const handleSignup = async () => {
+    setSignupLoading(true);
+    setSignupError(null);
+    const { error } = await signUp(signupEmail, signupPassword, name);
+    if (error) {
+      setSignupError(traduzirErro(error.message));
+      setSignupLoading(false);
+      return;
+    }
+    setStep(0);
+    setSignupLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
@@ -158,19 +175,73 @@ function Onboarding() {
           </div>
           <p className="text-base font-bold">Orquestra</p>
         </Link>
-        <p className="text-xs text-muted-foreground">Passo {step + 1} de 4</p>
+        <p className="text-xs text-muted-foreground">Passo {step + 2} de 5</p>
       </header>
 
       {/* Progress */}
       <div className="mx-auto max-w-3xl px-4">
         <div className="flex gap-1.5">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-all", i <= step ? "bg-primary" : "bg-muted")} />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-all", i <= step + 1 ? "bg-primary" : "bg-muted")} />
           ))}
         </div>
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-8 md:py-12">
+        {/* Step -1: Criar conta */}
+        {step === -1 && (
+          <div>
+            <h1 className="text-3xl font-bold md:text-4xl">Crie sua conta</h1>
+            <p className="mt-2 text-muted-foreground">Em poucos passos você faz parte da rede de ajuda.</p>
+
+            <div className="mt-8 space-y-4">
+              <div>
+                <Label htmlFor="signup-name">Nome completo</Label>
+                <Input
+                  id="signup-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Maria Silva"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="signup-email">E-mail</Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="voce@email.com"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="signup-password">Senha</Label>
+                <Input
+                  id="signup-password"
+                  type="password"
+                  minLength={6}
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="mt-1.5"
+                />
+              </div>
+              {signupError && (
+                <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{signupError}</p>
+              )}
+            </div>
+
+            <p className="mt-6 text-center text-sm text-muted-foreground">
+              Já tem conta?{" "}
+              <Link to="/auth" className="font-semibold text-primary hover:underline">
+                Entrar
+              </Link>
+            </p>
+          </div>
+        )}
+
         {/* Step 0: Role */}
         {step === 0 && (
           <div>
@@ -224,6 +295,10 @@ function Onboarding() {
                   <div>
                     <Label htmlFor="ong-name">Nome da ONG <span className="text-destructive">*</span></Label>
                     <Input id="ong-name" value={ongName} onChange={(e) => setOngName(e.target.value)} placeholder="Instituto Solidário" className="mt-1.5" />
+                  </div>
+                  <div>
+                    <Label htmlFor="ong-email">E-mail</Label>
+                    <Input id="ong-email" type="email" value={user?.email ?? ""} disabled placeholder="contato@suaong.org.br" className="mt-1.5" />
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
@@ -520,11 +595,23 @@ function Onboarding() {
           <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{saveError}</p>
         )}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
+          <Button
+            variant="ghost"
+            onClick={() => step === -1 ? navigate({ to: "/" }) : setStep(Math.max(0, step - 1))}
+            disabled={saving}
+          >
             <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
-          {/* Volunteer: show "Continuar" until step 3, then "Acessar"; ONG: show "Continuar" until step 3, then "Acessar" */}
-          {step < 3 ? (
+          {step === -1 ? (
+            <Button
+              onClick={handleSignup}
+              disabled={signupLoading || !name || !signupEmail || !signupPassword}
+              className="bg-gradient-hero shadow-soft"
+            >
+              {signupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Continuar <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          ) : step < 3 ? (
             <Button onClick={() => setStep(step + 1)} disabled={step === 0 && !role} className="bg-gradient-hero shadow-soft">
               Continuar <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
@@ -538,4 +625,12 @@ function Onboarding() {
       </div>
     </div>
   );
+}
+
+function traduzirErro(msg: string): string {
+  if (msg.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
+  if (msg.includes("User already registered")) return "Este e-mail já está cadastrado.";
+  if (msg.includes("Password should be at least")) return "A senha deve ter pelo menos 6 caracteres.";
+  if (msg.includes("rate limit")) return "Muitas tentativas. Aguarde um momento.";
+  return msg;
 }
