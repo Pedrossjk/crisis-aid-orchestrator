@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { actions, requests, matchedVolunteers, helpTypeLabels, urgencyLabels, type Urgency, type CrisisAction } from "@/lib/mock-data";
+import { actions, requests, helpTypeLabels, urgencyLabels, type Urgency, type CrisisAction } from "@/lib/mock-data";
+import { useMatchedVolunteers, type MatchResult } from "@/hooks/use-agent";
 import { Plus, MapPin, Flame, Clock, Users, ListChecks, Inbox, Sparkles, CheckCircle2, Trash2, Pencil, X, Loader2, UserCheck, Star, Send } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ function ActionsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
   // Invite dialog state
-  type InviteVolState = { vol: typeof matchedVolunteers[0] | null; message: string; sending: boolean; sent: boolean };
+  type InviteVolState = { vol: MatchResult | null; message: string; sending: boolean; sent: boolean };
   const [inviteVol, setInviteVol] = useState<InviteVolState>({ vol: null, message: "", sending: false, sent: false });
   const [invitedVols, setInvitedVols] = useState<Set<string>>(new Set());
 
@@ -68,6 +69,13 @@ function ActionsPage() {
   const [manageDraft, setManageDraft] = useState<ManageDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Real-time AI matching for the open candidates sheet
+  const { results: aiSuggestions, loading: aiLoading } = useMatchedVolunteers(
+    candidatesAction?.id ?? null,
+    candidatesAction?.helpTypes ?? [],
+    candidatesAction?.urgency ?? "medium"
+  );
 
   // Local actions state (for status updates / deletions in-session)
   const [localActions, setLocalActions] = useState(actions);
@@ -149,9 +157,9 @@ function ActionsPage() {
     return `Olá, ${volName}!\n\nSou da ONG ${ongName} e identificamos que o seu perfil tem grande compatibilidade com a nossa ação "${actionTitle}".\n\nGostaríamos de convidá-lo(a) a participar desta iniciativa. Acesse o app para ver todos os detalhes e confirmar sua participação.\n\nCom gratidão,\n${ongName}`;
   };
 
-  const openInviteVol = (v: typeof matchedVolunteers[0]) => {
+  const openInviteVol = (v: MatchResult) => {
     if (!candidatesAction) return;
-    setInviteVol({ vol: v, message: buildVolInviteMsg(v.name, candidatesAction.title), sending: false, sent: false });
+    setInviteVol({ vol: v, message: buildVolInviteMsg(v.name ?? "voluntário", candidatesAction.title), sending: false, sent: false });
   };
 
   const closeInviteVol = () => setInviteVol((s) => ({ ...s, vol: null, sent: false }));
@@ -162,7 +170,7 @@ function ActionsPage() {
     const { data: profile } = await supabase
       .from("profiles")
       .select("id")
-      .ilike("name", inviteVol.vol.name)
+      .ilike("name", inviteVol.vol.name ?? "")
       .maybeSingle();
     await supabase.from("notifications").insert({
       recipient_id: profile?.id ?? null,
@@ -174,11 +182,10 @@ function ActionsPage() {
       unread: true,
     });
     setInviteVol((s) => ({ ...s, sending: false, sent: true }));
-    if (inviteVol.vol) setInvitedVols((prev) => new Set([...prev, inviteVol.vol!.id]));
+    if (inviteVol.vol) setInvitedVols((prev) => new Set([...prev, inviteVol.vol!.volunteerId]));
   };
 
-  // AI-suggested volunteers for the selected action (mock: top 3 by matchScore)
-  const suggestedVols = matchedVolunteers.slice(0, 3);
+
 
   return (
     <AppShell role="ong">
@@ -443,44 +450,59 @@ function ActionsPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-ai" />
                 <p className="text-sm font-bold text-gradient-ai">Sugestões da IA</p>
-                <Badge className="bg-ai/10 text-ai text-[10px] h-4 px-1.5">{suggestedVols.length}</Badge>
+                {!aiLoading && (
+                  <Badge className="bg-ai/10 text-ai text-[10px] h-4 px-1.5">{aiSuggestions.length}</Badge>
+                )}
               </div>
               <div className="rounded-xl border border-ai/20 bg-ai/5 px-3 py-2 text-xs text-muted-foreground mb-3">
-                Voluntários com maior compatibilidade de habilidades, disponibilidade e localização para esta ação.
+                Voluntários com maior compatibilidade de habilidades, confiabilidade e avaliação para esta ação.
               </div>
-              <div className="space-y-2">
-                {suggestedVols.map((v) => (
-                  <div key={v.id} className="flex items-center gap-3 rounded-xl border border-ai/20 bg-card p-3 shadow-soft">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold text-sm">
-                      {v.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{v.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {v.distanceKm}km</span>
-                        <span className="flex items-center gap-0.5"><Star className="h-3 w-3 fill-warning text-warning" /> {v.rating}</span>
-                        <span className="truncate">{v.skills.join(" · ")}</span>
+              {aiLoading ? (
+                <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Analisando voluntários…
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {aiSuggestions.map((v) => (
+                    <div key={v.volunteerId} className="flex items-center gap-3 rounded-xl border border-ai/20 bg-card p-3 shadow-soft">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold text-sm">
+                        {v.initials ?? v.name?.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{v.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {v.distanceKm != null && (
+                            <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {v.distanceKm}km</span>
+                          )}
+                          {v.rating != null && (
+                            <span className="flex items-center gap-0.5"><Star className="h-3 w-3 fill-warning text-warning" /> {v.rating.toFixed(1)}</span>
+                          )}
+                          {v.skills && v.skills.length > 0 && (
+                            <span className="truncate">{v.skills.join(" · ")}</span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-ai/70 truncate">{v.reason}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{v.score}%</span>
+                        {invitedVols.has(v.volunteerId) ? (
+                          <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
+                            <CheckCircle2 className="h-3 w-3" /> Convidado
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 px-2.5 text-xs gap-1 bg-gradient-hero"
+                            onClick={() => openInviteVol(v)}
+                          >
+                            <Send className="h-3 w-3" /> Convidar
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{v.matchScore}%</span>
-                      {invitedVols.has(v.id) ? (
-                        <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
-                          <CheckCircle2 className="h-3 w-3" /> Convidado
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="h-7 px-2.5 text-xs gap-1 bg-gradient-hero"
-                          onClick={() => openInviteVol(v)}
-                        >
-                          <Send className="h-3 w-3" /> Convidar
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </SheetContent>
@@ -513,9 +535,9 @@ function ActionsPage() {
                     </div>
                     <div>
                       <p className="font-semibold">{inviteVol.vol.name}</p>
-                      <p className="text-xs text-muted-foreground">{inviteVol.vol.skills.join(" · ")} · {inviteVol.vol.distanceKm}km</p>
+                    <p className="text-xs text-muted-foreground">{(inviteVol.vol?.skills ?? []).join(" · ")}{inviteVol.vol?.distanceKm != null ? ` · ${inviteVol.vol.distanceKm}km` : ""}</p>
                     </div>
-                    <span className="ml-auto rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{inviteVol.vol.matchScore}% match</span>
+                    <span className="ml-auto rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{inviteVol.vol?.score}% match</span>
                   </div>
                 )}
                 {candidatesAction && (

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useRecommendedActionIds } from "@/hooks/use-agent";
 
 export const Route = createFileRoute("/volunteer/")({
   head: () => ({
@@ -22,14 +23,21 @@ function VolunteerHome() {
   const { user } = useAuth();
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
 
+  // Recomendações personalizadas pelo motor de matching
+  // Usa dados reais do Supabase; cai para isAiRecommended se banco vazio
+  const { recommendedIds } = useRecommendedActionIds(user?.id ?? null);
+
   const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "Voluntário";
 
-  const recommended = actions.filter((a) => a.isAiRecommended);
+  const isAiRec = (a: typeof actions[0]) =>
+    recommendedIds.length > 0 ? recommendedIds.includes(a.id) : a.isAiRecommended;
+
+  const recommended = actions.filter(isAiRec);
 
   // Build a single timeline mixing recommendations and other actions, excluding hidden
   const timeline = [
     ...recommended,
-    ...actions.filter((a) => !a.isAiRecommended),
+    ...actions.filter((a) => !isAiRec(a)),
   ].filter((a) => !hiddenIds.includes(a.id));
 
   function handleHide(id: string) {
