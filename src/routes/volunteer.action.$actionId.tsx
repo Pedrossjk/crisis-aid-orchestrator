@@ -1,9 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { actions, type CrisisAction, helpTypeLabels, urgencyLabels, type Urgency, type HelpType } from "@/lib/mock-data";
-import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/volunteer/action/$actionId")({
   head: () => ({
@@ -38,10 +43,49 @@ function NotFound() {
 function ActionDetail() {
   const { actionId } = Route.useParams();
   const action: CrisisAction | undefined = actions.find((a) => a.id === actionId);
+  const { user } = useAuth();
+
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyMsg, setApplyMsg] = useState("");
+  const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   if (!action) return <NotFound />;
 
   const filledPct = (action.volunteersJoined / action.volunteersNeeded) * 100;
+
+  const displayName = (user?.user_metadata?.full_name as string | undefined) ?? "Voluntário";
+  const initials = displayName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+
+  const handleApply = async () => {
+    if (!user) return;
+    setApplying(true);
+    try {
+      const { error } = await supabase.from("action_applications").insert({
+        action_id: action.id,
+        action_title: action.title,
+        volunteer_id: user.id,
+        volunteer_name: displayName,
+        volunteer_initials: initials,
+        message: applyMsg.trim() || null,
+        status: "pending",
+      });
+      if (error) {
+        if (error.code === "23505") {
+          setAlreadyApplied(true);
+        } else {
+          throw error;
+        }
+      } else {
+        setApplied(true);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setApplying(false);
+    }
+  };
 
   return (
     <AppShell role="volunteer">
@@ -163,7 +207,7 @@ function ActionDetail() {
           </div>
 
           <div className="sticky bottom-24 md:bottom-4 space-y-2">
-            <Button className="w-full bg-gradient-hero shadow-elegant" size="lg">
+            <Button className="w-full bg-gradient-hero shadow-elegant" size="lg" onClick={() => { setApplyOpen(true); setApplied(false); setAlreadyApplied(false); setApplyMsg(""); }}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Quero ajudar
             </Button>
             <Button variant="outline" className="w-full" size="lg">
@@ -172,6 +216,57 @@ function ActionDetail() {
           </div>
         </aside>
       </div>
+
+      {/* Application modal */}
+      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Candidatar-se à ação</DialogTitle>
+          </DialogHeader>
+          {applied ? (
+            <div className="py-6 text-center space-y-3">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15">
+                <CheckCircle2 className="h-8 w-8 text-success" />
+              </div>
+              <p className="font-semibold">Solicitação enviada!</p>
+              <p className="text-sm text-muted-foreground">A ONG foi notificada e entrará em contato em breve.</p>
+              <Button className="w-full mt-2" onClick={() => setApplyOpen(false)}>Fechar</Button>
+            </div>
+          ) : alreadyApplied ? (
+            <div className="py-6 text-center space-y-3">
+              <p className="font-semibold">Você já se candidatou a esta ação</p>
+              <p className="text-sm text-muted-foreground">Aguarde a resposta da ONG.</p>
+              <Button variant="outline" className="w-full mt-2" onClick={() => setApplyOpen(false)}>Fechar</Button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 py-2">
+                <div className="rounded-xl bg-muted p-3 text-sm">
+                  <p className="font-semibold">{action.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{action.org} · {action.location}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Mensagem para a ONG <span className="text-muted-foreground font-normal">(opcional)</span></label>
+                  <Textarea
+                    placeholder="Descreva brevemente sua experiência e por que quer ajudar…"
+                    value={applyMsg}
+                    onChange={(e) => setApplyMsg(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setApplyOpen(false)} disabled={applying}>Cancelar</Button>
+                <Button onClick={handleApply} disabled={applying} className="bg-gradient-hero">
+                  {applying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Enviar solicitação
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

@@ -6,6 +6,7 @@ import { Sparkles, Search, Flame, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/volunteer/")({
   head: () => ({
@@ -18,7 +19,10 @@ export const Route = createFileRoute("/volunteer/")({
 });
 
 function VolunteerHome() {
+  const { user } = useAuth();
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+
+  const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "Voluntário";
 
   const recommended = actions.filter((a) => a.isAiRecommended);
 
@@ -37,7 +41,7 @@ function VolunteerHome() {
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Greeting */}
         <div>
-          <h1 className="text-2xl font-bold">Olá, Vitória</h1>
+          <h1 className="text-2xl font-bold">Olá, {firstName}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             <span className="font-semibold text-ai">{recommended.length} ações ideais</span> esperando por você hoje.
           </p>
