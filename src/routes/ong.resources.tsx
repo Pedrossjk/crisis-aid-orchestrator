@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { resourceOffers, ngoConnections, helpTypeLabels, type ResourceOffer, type NgoConnection } from "@/lib/mock-data";
-import { Plus, MapPin, Sparkles, Package, Building2, CheckCircle2, Send, Loader2, Network } from "lucide-react";
+import { Plus, MapPin, Sparkles, Package, Building2, CheckCircle2, Send, Loader2, Network, Phone, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,20 @@ export const Route = createFileRoute("/ong/resources")({
   component: ResourcesPage,
 });
 
+// Rich profiles for the matched NGOs shown in Ver perfil
+type RichNgoProfile = NgoConnection & { description?: string; areas?: string[]; phone?: string; website?: string };
+
+const richNgoProfiles: Record<string, RichNgoProfile> = {
+  n1: { ...ngoConnections[0], description: "Organização reconhecida pelo atendimento em crise hírica e distribuição de alimentos em Santa Catarina.", areas: ["Alimentos", "Logística", "Abrigo"], phone: "(47) 3399-1234", website: "cruzverdebrasil.org.br" },
+  n2: { ...ngoConnections[1], description: "ONG especializada em resgates e transporte de animais em áreas de risco clímático.", areas: ["Transporte", "Resgate animal", "Bem-estar animal"], phone: "(47) 98877-5566", website: "patassolidarias.org" },
+  n3: { ...ngoConnections[2], description: "Equipe médica voluntária que atua em triagem e primeiros socorros em abrigos emergenciais.", areas: ["Saúde", "Triagem", "Medicina de emergência"], phone: "(48) 99123-4567", website: "saudesemfronteiras.org.br" },
+  n4: { ...ngoConnections[3], description: "Instituição focada em distribuição de alimentos e cobertores para famílias desabrigadas.", areas: ["Alimentação", "Suprimentos", "Abrigo familiar"], phone: "(47) 3212-9988", website: "maosquealimentam.org" },
+};
+
+function getRichProfile(ngo: NgoConnection): RichNgoProfile {
+  return richNgoProfiles[ngo.id] ?? ngo;
+}
+
 // Mock: map resource id → matched NGO connections
 const resourceMatchMap: Record<string, NgoConnection[]> = {
   r1: [ngoConnections[0], ngoConnections[3]],
@@ -45,7 +59,7 @@ function ResourcesPage() {
   const [matchesResource, setMatchesResource] = useState<ResourceOffer | null>(null);
   const [contactedNgos, setContactedNgos] = useState<Set<string>>(new Set());
   const [contact, setContact] = useState<ContactState>({ ngo: null, message: "", sending: false, sent: false });
-  const [resourceProfileNgo, setResourceProfileNgo] = useState<NgoConnection | null>(null);
+  const [resourceProfileNgo, setResourceProfileNgo] = useState<RichNgoProfile | null>(null);
 
   const buildContactMsg = (ngoName: string, resource: ResourceOffer): string => {
     const ongName = (user?.user_metadata?.full_name as string | undefined) ?? "nossa ONG";
@@ -193,7 +207,7 @@ function ResourcesPage() {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setResourceProfileNgo(ngo)}>
+                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setResourceProfileNgo(getRichProfile(ngo))}>
                     <Building2 className="h-3 w-3" /> Ver perfil
                   </Button>
                   {contactedNgos.has(ngo.id) ? (
@@ -297,26 +311,43 @@ function ResourcesPage() {
                 </div>
                 <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">{resourceProfileNgo.matchScore}% match</span>
               </div>
-              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-4">
+                {resourceProfileNgo.description && (
+                  <div>
+                    <p className="text-[11px] font-medium uppercase text-muted-foreground">Sobre</p>
+                    <p className="mt-1 text-sm">{resourceProfileNgo.description}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[11px] font-medium uppercase text-muted-foreground">Área de atuação</p>
                   <p className="mt-1 text-sm font-medium">{resourceProfileNgo.topic}</p>
                 </div>
+                {resourceProfileNgo.areas && resourceProfileNgo.areas.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-medium uppercase text-muted-foreground">Especialidades</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {resourceProfileNgo.areas.map((a) => (
+                        <span key={a} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{a}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="text-[11px] font-medium uppercase text-muted-foreground">Necessidade identificada</p>
                   <p className="mt-1 text-sm">{resourceProfileNgo.matchedItem}</p>
                 </div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase text-muted-foreground">Status</p>
-                  <span className={cn(
-                    "mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    resourceProfileNgo.status === "active" ? "bg-success/15 text-success" :
-                    resourceProfileNgo.status === "pending" ? "bg-warning/15 text-warning" :
-                    "bg-muted text-muted-foreground"
-                  )}>
-                    {resourceProfileNgo.status === "active" ? "Parceria ativa" : resourceProfileNgo.status === "pending" ? "Aguardando" : "Concluída"}
-                  </span>
-                </div>
+                {resourceProfileNgo.phone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{resourceProfileNgo.phone}</span>
+                  </div>
+                )}
+                {resourceProfileNgo.website && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-primary">{resourceProfileNgo.website}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

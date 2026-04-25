@@ -1,14 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { actions, type CrisisAction, helpTypeLabels, urgencyLabels, type Urgency, type HelpType } from "@/lib/mock-data";
-import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2, Send, Loader2, Check, Building2, Phone, Globe, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+
+type OngProfile = {
+  name: string;
+  initials: string;
+  city: string;
+  description: string;
+  areas: string[];
+  phone?: string;
+  website?: string;
+  activeActions: number;
+  volunteersHelped: number;
+};
+
+const ongProfiles: Record<string, OngProfile> = {
+  "Cruz Verde Brasil": { name: "Cruz Verde Brasil", initials: "CV", city: "Blumenau, SC", description: "Organização reconhecida pelo atendimento em crise hídrica e distribuição de alimentos em Santa Catarina. Atuamos em mais de 30 municípios desde 2012.", areas: ["Alimentos", "Logística", "Abrigo"], phone: "(47) 3399-1234", website: "cruzverdebrasil.org.br", activeActions: 8, volunteersHelped: 1240 },
+  "Patas Solidárias": { name: "Patas Solidárias", initials: "PS", city: "Itajaí, SC", description: "ONG especializada em resgates e transporte de animais em áreas de risco climático. Já resgatamos mais de 3.000 animais.", areas: ["Resgate animal", "Transporte", "Bem-estar animal"], phone: "(47) 98877-5566", website: "patassolidarias.org", activeActions: 3, volunteersHelped: 540 },
+  "Saúde Sem Fronteiras": { name: "Saúde Sem Fronteiras", initials: "SF", city: "Florianópolis, SC", description: "Equipe médica voluntária que atua em triagem e primeiros socorros em abrigos emergenciais em todo o Sul do Brasil.", areas: ["Saúde", "Triagem", "Medicina de emergência"], phone: "(48) 99123-4567", website: "saudesemfronteiras.org.br", activeActions: 5, volunteersHelped: 890 },
+  "Mãos que Alimentam": { name: "Mãos que Alimentam", initials: "MA", city: "Brusque, SC", description: "Instituição focada na distribuição de alimentos e cobertores para famílias desabrigadas em situações de calamidade.", areas: ["Alimentação", "Suprimentos", "Abrigo familiar"], phone: "(47) 3212-9988", website: "maosquealimentam.org", activeActions: 6, volunteersHelped: 2100 },
+};
 
 export const Route = createFileRoute("/volunteer/action/$actionId")({
   head: () => ({
@@ -50,8 +70,41 @@ function ActionDetail() {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [ongSheetOpen, setOngSheetOpen] = useState(false);
 
   if (!action) return <NotFound />;
+
+  const ongProfile: OngProfile =
+    ongProfiles[action.org] ?? {
+      name: action.org,
+      initials: action.orgAvatar,
+      city: action.location,
+      description: "Organização sem fins lucrativos dedicada a ajudar comunidades afetadas por crises e desastres.",
+      areas: ["Ajuda humanitária"],
+      activeActions: 1,
+      volunteersHelped: 0,
+    };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: action.title,
+      text: `Ajude a ${action.org} com: ${action.title} — ${action.location}`,
+      url,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        // user cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      setTimeout(() => setShared(false), 2500);
+    }
+  };
 
   const filledPct = (action.volunteersJoined / action.volunteersNeeded) * 100;
 
@@ -108,15 +161,19 @@ function ActionDetail() {
               )}
             </div>
             <h1 className="mt-3 text-2xl font-bold md:text-3xl">{action.title}</h1>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-hero text-sm font-bold text-primary-foreground">
+            <button
+              className="mt-3 flex items-center gap-3 rounded-xl hover:bg-muted/60 transition -mx-2 px-2 py-1.5 w-full text-left"
+              onClick={() => setOngSheetOpen(true)}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-hero text-sm font-bold text-primary-foreground shrink-0">
                 {action.orgAvatar}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">{action.org}</p>
-                <p className="text-xs text-muted-foreground">Postado {action.postedAgo}</p>
+                <p className="text-xs text-muted-foreground">Postado {action.postedAgo} · <span className="text-primary">Ver perfil da ONG</span></p>
               </div>
-            </div>
+              <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{action.description}</p>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
@@ -210,12 +267,97 @@ function ActionDetail() {
             <Button className="w-full bg-gradient-hero shadow-elegant" size="lg" onClick={() => { setApplyOpen(true); setApplied(false); setAlreadyApplied(false); setApplyMsg(""); }}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Quero ajudar
             </Button>
-            <Button variant="outline" className="w-full" size="lg">
-              <Share2 className="mr-2 h-4 w-4" /> Compartilhar
+            <Button variant="outline" className="w-full" size="lg" onClick={handleShare}>
+              {shared ? (
+                <><Check className="mr-2 h-4 w-4 text-success" /> Link copiado!</>
+              ) : (
+                <><Share2 className="mr-2 h-4 w-4" /> Compartilhar</>
+              )}
             </Button>
           </div>
         </aside>
       </div>
+
+      {/* ONG Profile Sheet */}
+      <Sheet open={ongSheetOpen} onOpenChange={setOngSheetOpen}>
+        <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" /> Sobre a ONG
+            </SheetTitle>
+            <SheetDescription className="sr-only">Informações da organização responsável pela ação</SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-5 space-y-5">
+            {/* Header */}
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-hero text-primary-foreground font-bold text-xl">
+                {ongProfile.initials}
+              </div>
+              <div className="flex-1">
+                <p className="text-xl font-bold">{ongProfile.name}</p>
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="h-3.5 w-3.5" /> {ongProfile.city}
+                </p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-center">
+                <p className="text-lg font-bold">{ongProfile.activeActions}</p>
+                <p className="text-[11px] text-muted-foreground">Ações ativas</p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-center">
+                <p className="text-lg font-bold">{ongProfile.volunteersHelped > 0 ? ongProfile.volunteersHelped.toLocaleString("pt-BR") : "—"}</p>
+                <p className="text-[11px] text-muted-foreground">Voluntários impactados</p>
+              </div>
+            </div>
+
+            {/* Sobre */}
+            <div>
+              <p className="text-[11px] font-medium uppercase text-muted-foreground">Sobre</p>
+              <p className="mt-1 text-sm leading-relaxed">{ongProfile.description}</p>
+            </div>
+
+            {/* Áreas */}
+            <div>
+              <p className="text-[11px] font-medium uppercase text-muted-foreground">Área de atuação</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {ongProfile.areas.map((a) => (
+                  <span key={a} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{a}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Contato */}
+            {(ongProfile.phone || ongProfile.website) && (
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                <p className="text-[11px] font-medium uppercase text-muted-foreground">Contato</p>
+                {ongProfile.phone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{ongProfile.phone}</span>
+                  </div>
+                )}
+                {ongProfile.website && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-primary">{ongProfile.website}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              className="w-full bg-gradient-hero gap-1.5"
+              onClick={() => { setOngSheetOpen(false); setApplyOpen(true); setApplied(false); setAlreadyApplied(false); setApplyMsg(""); }}
+            >
+              <CheckCircle2 className="h-4 w-4" /> Quero ajudar nesta ação
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Application modal */}
       <Dialog open={applyOpen} onOpenChange={setApplyOpen}>

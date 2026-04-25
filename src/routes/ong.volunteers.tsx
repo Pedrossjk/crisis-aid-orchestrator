@@ -17,6 +17,8 @@ import {
   Loader2,
   ChevronRight,
   Clock,
+  User,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +93,11 @@ function VolunteersPage() {
   const [chatInput, setChatInput] = useState("");
   const [sendingMsg, setSendingMsg] = useState(false);
 
+  const [chatVol, setChatVol] = useState<Volunteer | null>(null);
+  const [volMsgs, setVolMsgs] = useState<{ id: string; own: boolean; content: string; time: Date }[]>([]);
+  const [volInput, setVolInput] = useState("");
+  const [sendingVol, setSendingVol] = useState(false);
+
   const ongName = (user?.user_metadata?.full_name as string | undefined) ?? "ONG";
 
   useEffect(() => {
@@ -148,6 +155,24 @@ function VolunteersPage() {
       .single();
     if (data) setChatMessages((prev) => [...prev, data as ChatMessage]);
     setSendingMsg(false);
+  };
+
+  const openVolChat = (v: Volunteer) => {
+    setChatVol(v);
+    setVolMsgs([]);
+    setVolInput("");
+  };
+
+  const sendVolMsg = () => {
+    if (!volInput.trim() || sendingVol) return;
+    const content = volInput.trim();
+    setVolInput("");
+    setSendingVol(true);
+    setVolMsgs((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), own: true, content, time: new Date() },
+    ]);
+    setSendingVol(false);
   };
 
   const pendingApps = applications.filter((a) => a.status === "pending");
@@ -278,20 +303,89 @@ function VolunteersPage() {
 
         <TabsContent value="all" className="space-y-3">
           {[...matchedVolunteers, ...matchedVolunteers].map((v, i) => (
-            <VolunteerRow key={i} volunteer={v} index={i} status="active" />
+            <VolunteerRow key={i} volunteer={v} index={i} status="active" onChat={openVolChat} />
           ))}
         </TabsContent>
         <TabsContent value="active" className="space-y-3">
           {matchedVolunteers.map((v, i) => (
-            <VolunteerRow key={i} volunteer={v} index={i} status="active" />
+            <VolunteerRow key={i} volunteer={v} index={i} status="active" onChat={openVolChat} />
           ))}
         </TabsContent>
         <TabsContent value="completed" className="space-y-3">
           {matchedVolunteers.slice(0, 3).map((v, i) => (
-            <VolunteerRow key={i} volunteer={v} index={i} status="completed" />
+            <VolunteerRow key={i} volunteer={v} index={i} status="completed" onChat={openVolChat} />
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Chat Sheet — voluntários mock */}
+      <Sheet open={!!chatVol} onOpenChange={(open) => { if (!open) setChatVol(null); }}>
+        <SheetContent side="right" className="flex flex-col sm:max-w-md p-0">
+          <SheetHeader className="p-5 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-primary" />
+              Chat com {chatVol?.name}
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              {chatVol?.skills.join(" · ")}
+            </SheetDescription>
+          </SheetHeader>
+
+          {/* Mensagens */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {volMsgs.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-8">
+                Nenhuma mensagem ainda. Envie uma para começar!
+              </p>
+            )}
+            {volMsgs.map((msg) => (
+              <div key={msg.id} className={cn("flex", msg.own ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-soft",
+                    msg.own
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
+                      : "bg-card border border-border/60 rounded-bl-sm",
+                  )}
+                >
+                  <p>{msg.content}</p>
+                  <p className={cn("text-[10px] mt-1 opacity-60", msg.own ? "text-right" : "")}>
+                    {msg.time.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Input */}
+          <div className="border-t p-4 flex gap-2">
+            <Input
+              placeholder="Escreva uma mensagem…"
+              value={volInput}
+              onChange={(e) => setVolInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendVolMsg();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              size="icon"
+              onClick={sendVolMsg}
+              disabled={sendingVol || !volInput.trim()}
+              className="bg-gradient-hero shrink-0"
+            >
+              {sendingVol ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Chat sheet */}
       <Sheet
@@ -381,10 +475,12 @@ function VolunteerRow({
   volunteer: v,
   index: i,
   status,
+  onChat,
 }: {
   volunteer: Volunteer;
   index: number;
   status: "pending" | "active" | "completed";
+  onChat?: (v: Volunteer) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
@@ -433,10 +529,14 @@ function VolunteerRow({
       </div>
       <div className="flex gap-1 ml-auto">
         {status === "completed" ? (
-          <ReviewSheet volunteer={v} />
+          <>
+            <ProfileSheet volunteer={v} onChat={onChat} />
+            <ReviewSheet volunteer={v} />
+          </>
         ) : (
           <>
-            <Button size="icon" variant="outline" aria-label="Mensagem">
+            <ProfileSheet volunteer={v} onChat={onChat} />
+            <Button size="icon" variant="outline" aria-label="Mensagem" onClick={() => onChat?.(v)}>
               <MessageCircle className="h-4 w-4" />
             </Button>
             {status === "pending" && (
@@ -459,6 +559,148 @@ function VolunteerRow({
         )}
       </div>
     </div>
+  );
+}
+
+function ProfileSheet({ volunteer: v, onChat }: { volunteer: Volunteer; onChat?: (v: Volunteer) => void }) {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button size="icon" variant="outline" aria-label="Ver perfil">
+          <User className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" /> Perfil do voluntário
+          </SheetTitle>
+          <SheetDescription className="sr-only">Informações detalhadas do voluntário</SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-5 space-y-5">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-hero text-primary-foreground font-bold text-xl">
+              {v.initials}
+            </div>
+            <div className="flex-1">
+              <p className="text-xl font-bold">{v.name}</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <span className="rounded-full bg-ai/10 px-2.5 py-1 text-xs font-bold text-ai flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> {v.matchScore}% match
+                </span>
+                {v.reliability && v.reliability >= 90 && (
+                  <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold text-success flex items-center gap-1">
+                    <Award className="h-3 w-3" /> Top performer
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-center">
+              <p className="text-lg font-bold">{v.rating}</p>
+              <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-0.5">
+                <Star className="h-3 w-3 fill-warning text-warning" /> Avaliação
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-center">
+              <p className="text-lg font-bold">{v.completedActions}</p>
+              <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-0.5">
+                <CheckCircle2 className="h-3 w-3" /> Ações
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-center">
+              <p className="text-lg font-bold">{v.distanceKm}km</p>
+              <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-0.5">
+                <MapPin className="h-3 w-3" /> Distância
+              </p>
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div>
+            <p className="text-[11px] font-medium uppercase text-muted-foreground">Habilidades</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {v.skills.map((s) => (
+                <span key={s} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{s}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Internal tags */}
+          {v.internalTags && v.internalTags.length > 0 && (
+            <div className="rounded-xl border border-ai/20 bg-ai/5 p-4">
+              <p className="text-[11px] font-medium uppercase text-ai flex items-center gap-1">
+                <Lock className="h-3 w-3" /> Tags privadas (só sua ONG vê)
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {v.internalTags.map((t) => (
+                  <span key={t} className="rounded-full bg-ai/15 px-2.5 py-1 text-xs font-medium text-ai">{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reliability */}
+          {v.reliability !== undefined && (
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-medium uppercase text-muted-foreground flex items-center gap-1">
+                  <Lock className="h-3 w-3" /> Score de confiabilidade (IA)
+                </p>
+                <span className={cn(
+                  "text-sm font-bold",
+                  v.reliability >= 90 ? "text-success" : v.reliability >= 70 ? "text-warning" : "text-destructive"
+                )}>{v.reliability}%</span>
+              </div>
+              <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    v.reliability >= 90 ? "bg-success" : v.reliability >= 70 ? "bg-warning" : "bg-destructive"
+                  )}
+                  style={{ width: `${v.reliability}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Last review */}
+          {v.lastReview && (
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+              <p className="text-[11px] font-medium uppercase text-muted-foreground flex items-center gap-1">
+                <Lock className="h-3 w-3" /> Última avaliação privada
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                {[1,2,3,4,5].map((n) => (
+                  <Star key={n} className={cn("h-4 w-4", n <= v.lastReview!.rating ? "fill-warning text-warning" : "text-muted-foreground/30")} />
+                ))}
+                <span className="text-xs text-muted-foreground ml-1">— {v.lastReview.org}</span>
+              </div>
+              <p className="mt-2 text-sm italic text-muted-foreground">"{v.lastReview.comment}"</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{v.lastReview.date}</p>
+            </div>
+          )}
+
+          {/* Actions */}
+          {onChat && (
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full gap-1.5"
+                onClick={() => onChat(v)}
+              >
+                <MessageCircle className="h-4 w-4" /> Enviar mensagem
+              </Button>
+            </SheetTrigger>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

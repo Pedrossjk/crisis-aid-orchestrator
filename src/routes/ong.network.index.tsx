@@ -27,6 +27,7 @@ type PendingRequest = {
   message: string;
   receivedAgo: string;
   matchScore: number;
+  actionTitle?: string;
   website?: string;
   phone?: string;
   description?: string;
@@ -40,7 +41,8 @@ const initialPendingRequests: PendingRequest[] = [
     orgInitials: "SF",
     city: "Florianópolis, SC",
     topic: "Equipe médica",
-    message: "Olá! Identificamos que vocês possuem recursos compatíveis com nossa necessidade urgente de equipe médica para triagem em abrigo. Gostaríamos de estabelecer uma parceria.",
+    actionTitle: "Atendimento médico voluntário",
+    message: "Olá! Identificamos que vocês estão com a ação \"Atendimento médico voluntário\" e temos uma equipe médica disponível que pode apoiar diretamente. Gostaríamos de colaborar!",
     receivedAgo: "há 2h",
     matchScore: 88,
     website: "saudesemfronteiras.org.br",
@@ -54,7 +56,8 @@ const initialPendingRequests: PendingRequest[] = [
     orgInitials: "LP",
     city: "Joinville, SC",
     topic: "Alimentos e cobertores",
-    message: "Prezados, nossa organização está atendendo 120 crianças desabrigadas e precisamos de apoio com alimentos e cobertores. Podemos colaborar?",
+    actionTitle: "Distribuição de cestas básicas — Blumenau",
+    message: "Prezados, vimos sua ação \"Distribuição de cestas básicas\" e temos 200 cestas e cobertores que poderiam ser destinados imediatamente. Podemos colaborar com logística também!",
     receivedAgo: "há 5h",
     matchScore: 79,
     website: "lardospequenos.org",
@@ -68,7 +71,8 @@ const initialPendingRequests: PendingRequest[] = [
     orgInitials: "RC",
     city: "Blumenau, SC",
     topic: "Materiais de construção",
-    message: "Estamos coordenando a reconstrução de casas afetadas pelas enchentes. Temos equipes disponíveis, mas precisamos de parceiros que possam ajudar na logística e captação de materiais.",
+    actionTitle: "Suporte de TI para abrigo",
+    message: "Olá! Vimos que vocês estão coordenando ações em Blumenau e temos equipes de voluntários e materiais disponíveis que poderiam reforçar diretamente sua operação. Topa uma parceria?",
     receivedAgo: "há 1 dia",
     matchScore: 72,
     website: "reconstruirsc.com.br",
@@ -113,7 +117,7 @@ function NetworkPage() {
         <Network className="h-7 w-7 text-ai" />
         <span className="text-gradient-ai">ONGs por ONGs</span>
       </h1>
-      <p className="mt-1 text-muted-foreground">Gerencie as conexões com outras instituições e responda a solicitações de parceria.</p>
+      <p className="mt-1 text-muted-foreground">Gerencie as conexões com outras instituições e receba ofertas de ajuda para suas ações.</p>
 
       <Tabs defaultValue="active" className="mt-6">
         <TabsList>
@@ -124,7 +128,7 @@ function NetworkPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="needs">
-            Solicitações recebidas
+            Solicitações de ajuda
             {localPending.length > 0 && (
               <span className="ml-1.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning">{localPending.length}</span>
             )}
@@ -170,12 +174,12 @@ function NetworkPage() {
           )}
         </TabsContent>
 
-        {/* Solicitações recebidas */}
+        {/* Solicitações de ajuda */}
         <TabsContent value="needs" className="mt-5 space-y-3">
           {localPending.length === 0 ? (
             <div className="rounded-2xl border border-border/60 bg-muted/40 p-10 text-center text-sm text-muted-foreground">
               <Building2 className="mx-auto h-10 w-10 opacity-30 mb-3" />
-              Nenhuma solicitação pendente no momento.
+              Nenhuma oferta de ajuda recebida no momento.
             </div>
           ) : (
             localPending.map((r) => (
@@ -195,7 +199,13 @@ function NetworkPage() {
                   </div>
                   <span className="text-[11px] text-muted-foreground shrink-0">{r.receivedAgo}</span>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground italic bg-muted/40 rounded-xl px-4 py-3 line-clamp-2">
+                {r.actionTitle && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-primary/5 border border-primary/20 px-3 py-1.5 text-xs">
+                    <Info className="h-3 w-3 text-primary shrink-0" />
+                    <span className="text-muted-foreground">Para a ação: <span className="font-medium text-foreground">{r.actionTitle}</span></span>
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground italic bg-muted/40 rounded-lg px-3 py-2 line-clamp-2">
                   "{r.message}"
                 </p>
                 <div className="mt-3 flex gap-2">
@@ -215,7 +225,7 @@ function NetworkPage() {
                     className="flex-1 text-xs gap-1 bg-gradient-hero"
                     onClick={() => acceptRequest(r)}
                   >
-                    <UserCheck className="h-3 w-3" /> Aceitar
+                    <UserCheck className="h-3 w-3" /> Aceitar ajuda
                   </Button>
                 </div>
               </div>
@@ -309,7 +319,7 @@ function NetworkPage() {
                     className="flex-1 gap-1 bg-gradient-hero"
                     onClick={() => { acceptRequest(profileNgo); setProfileNgo(null); }}
                   >
-                    <UserCheck className="h-4 w-4" /> Aceitar conexão
+                    <UserCheck className="h-4 w-4" /> Aceitar ajuda
                   </Button>
                 </div>
               </div>
