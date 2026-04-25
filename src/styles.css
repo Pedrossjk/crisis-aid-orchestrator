@@ -74,15 +74,15 @@
   --accent: oklch(0.94 0.03 200);
   --accent-foreground: oklch(0.22 0.06 220);
 
-  --destructive: oklch(0.6 0.22 25);
+  --destructive: oklch(74.802% 0.12536 17.395);
   --destructive-foreground: oklch(0.99 0 0);
 
   /* Urgência alta — coral vibrante */
-  --urgent: oklch(67.981% 0.15995 18.554);
+  --urgent: oklch(72.402% 0.15434 17.27);
   --urgent-foreground: oklch(0.99 0 0);
 
   /* Atenção */
-  --warning: oklch(0.78 0.16 75);
+  --warning: oklch(86.401% 0.09492 82.715);
   --warning-foreground: oklch(0.22 0.06 60);
 
   /* Sucesso */
@@ -116,7 +116,7 @@
   --accent-foreground: oklch(0.97 0.005 220);
   --destructive: oklch(67.981% 0.15995 18.554);
   --destructive-foreground: oklch(0.99 0 0);
-  --urgent: oklch(0.7 0.21 22);
+  --urgent: oklch(75.446% 0.1373 18.052);
   --urgent-foreground: oklch(0.99 0 0);
   --warning: oklch(0.78 0.16 75);
   --warning-foreground: oklch(0.18 0.05 60);

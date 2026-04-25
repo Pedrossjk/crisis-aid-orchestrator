@@ -213,7 +213,7 @@ function ActionsPage() {
             {localActions.map((a) => {
               const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
               return (
-                <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft rounded-2xl">
+                <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase flex items-center gap-1", urgencyStyles[a.urgency])}>
                       {a.urgency === "high" && <Flame className="h-3 w-3" />}
@@ -263,7 +263,7 @@ function ActionsPage() {
               {localActions.filter((a) => a.status === "in_progress").map((a) => {
                 const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
                 return (
-                  <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft rounded-2xl">
+                  <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase flex items-center gap-1", urgencyStyles[a.urgency])}>
                         {a.urgency === "high" && <Flame className="h-3 w-3" />}
@@ -335,7 +335,7 @@ function ActionsPage() {
         </TabsContent>
 
         <TabsContent value="new" className="mt-5">
-          <div className="max-w-2xl rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
+          <div className="max-w-2xl border border-border/60 bg-card p-6 shadow-soft">
             <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> Cadastrar nova ação</h2>
             <p className="mt-1 text-xs text-muted-foreground">A IA usará esses dados para recomendar voluntários ideais.</p>
             <div className="mt-5 space-y-4">

@@ -105,7 +105,7 @@ function ResourcesPage() {
         <TabsContent value="mine" className="mt-5">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {resourceOffers.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
+              <div key={r.id} className="border border-border/60 bg-card p-5 shadow-soft">
                 <div className="flex items-center justify-between">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ai/10 text-ai"><Package className="h-5 w-5" /></div>
                   <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai flex items-center gap-1"><Sparkles className="h-2.5 w-2.5" />{r.matchedNeeds} matches</span>
@@ -130,7 +130,7 @@ function ResourcesPage() {
         </TabsContent>
 
         <TabsContent value="new" className="mt-5">
-          <div className="max-w-2xl rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
+          <div className="max-w-2xl border border-border/60 bg-card p-6 shadow-soft">
             <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> Cadastrar recurso disponível</h2>
             <p className="mt-1 text-xs text-muted-foreground">Descreva o recurso. A IA encontrará automaticamente ONGs que precisam.</p>
             <div className="mt-5 space-y-4">

@@ -19,6 +19,7 @@ import {
   Clock,
   User,
   CheckCircle2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,7 +186,7 @@ function VolunteersPage() {
       </p>
 
       {/* Privacy banner */}
-      <div className="mt-5 flex items-start gap-3 rounded-2xl border border-ai/30 bg-ai/5 p-4">
+      <div className="mt-5 flex items-start gap-3 border border-ai/30 bg-ai/5 p-4">
         <Shield className="h-5 w-5 text-ai mt-0.5 shrink-0" />
         <div className="text-sm">
           <p className="font-semibold text-foreground">Avaliações privadas alimentam a IA</p>
@@ -212,7 +213,10 @@ function VolunteersPage() {
           </TabsTrigger>
         </TabsList>
         <div className="mt-4 mb-3">
-          <Input placeholder="Buscar voluntário…" className="max-w-md" />
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input placeholder="Buscar voluntário…" className="pl-9" />
+          </div>
         </div>
 
         {/* Pendentes via Supabase */}
