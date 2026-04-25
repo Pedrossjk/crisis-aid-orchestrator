@@ -1,4 +1,5 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { AuthProvider } from "@/hooks/use-auth";
 
 import appCss from "../styles.css?url";
 
@@ -65,5 +66,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  // AuthProvider injeta o contexto de sessão Supabase em toda a árvore
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
 }
