@@ -185,30 +185,41 @@ function Onboarding() {
             <div className="mt-8 space-y-4">
               <div>
                 <Label htmlFor="name">Nome completo</Label>
-                <Input id="name" placeholder="Maria Silva" className="mt-1.5" />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Silva" className="mt-1.5" />
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" placeholder="maria@email.com" className="mt-1.5" />
+                  <Input id="email" type="email" value={user?.email ?? ""} disabled placeholder="maria@email.com" className="mt-1.5" />
                 </div>
                 <div>
                   <Label htmlFor="phone">WhatsApp</Label>
-                  <Input id="phone" placeholder="(00) 00000-0000" className="mt-1.5" />
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" className="mt-1.5" />
                 </div>
               </div>
               <div>
                 <Label htmlFor="loc"><MapPin className="inline h-3.5 w-3.5 mr-1" />Localização</Label>
-                <Input id="loc" placeholder="Cidade / Estado" className="mt-1.5" />
+                <Input id="loc" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade / Estado" className="mt-1.5" />
               </div>
               <div>
                 <Label><Clock className="inline h-3.5 w-3.5 mr-1" />Disponibilidade</Label>
                 <div className="mt-1.5 flex flex-wrap gap-2">
-                  {["Manhãs", "Tardes", "Noites", "Fins de semana", "Plantão"].map((d) => (
-                    <button key={d} className="rounded-full border border-border bg-card px-3 py-1.5 text-sm hover:border-primary hover:bg-primary/5">
-                      {d}
-                    </button>
-                  ))}
+                  {["Manhãs", "Tardes", "Noites", "Fins de semana", "Plantão"].map((d) => {
+                    const active = availability.includes(d);
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => toggle(availability, d, setAvailability)}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-sm transition",
+                          active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"
+                        )}
+                      >
+                        {d}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -312,8 +323,11 @@ function Onboarding() {
         )}
 
         {/* Nav */}
+        {saveError && (
+          <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{saveError}</p>
+        )}
         <div className="mt-10 flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
+          <Button variant="ghost" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || saving}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
           {step < 3 ? (
@@ -321,8 +335,9 @@ function Onboarding() {
               Continuar <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={finish} className="bg-gradient-hero shadow-elegant">
-              Acessar plataforma <ArrowRight className="ml-1 h-4 w-4" />
+            <Button onClick={finish} disabled={saving} className="bg-gradient-hero shadow-elegant">
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Acessar plataforma {!saving && <ArrowRight className="ml-1 h-4 w-4" />}
             </Button>
           )}
         </div>
