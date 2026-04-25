@@ -1,38 +1,80 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { Bell, CheckCircle2, MessageCircle, Sparkles, AlertTriangle } from "lucide-react";
+import { Bell, CheckCircle2, MessageCircle, Sparkles, AlertTriangle, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/volunteer/notifications")({
   head: () => ({ meta: [{ title: "Alertas — Voluntário · Orquestra" }, { name: "description", content: "Notificações e alertas em tempo real." }] }),
   component: Notifications,
 });
 
-const notifs = [
-  { icon: AlertTriangle, color: "bg-urgent", title: "Crise ativa: Enchentes em Blumenau", desc: "Nova ação urgente a 2.4 km de você. Voluntários necessários para distribuição de cestas.", time: "agora", channel: "WhatsApp", unread: true },
-  { icon: Sparkles, color: "bg-ai", title: "IA encontrou um match perfeito!", desc: "“Cozinheiros para refeições comunitárias” combina 96% com seu perfil.", time: "há 1h", channel: "Push", unread: true },
-  { icon: CheckCircle2, color: "bg-success", title: "Sua candidatura foi aprovada", desc: "Mãos que Alimentam confirmou sua participação na ação de manhã.", time: "há 3h", channel: "Email", unread: false },
-  { icon: MessageCircle, color: "bg-primary", title: "Mensagem de Cruz Verde Brasil", desc: "Olá Vitória, podemos confirmar você para sábado às 9h?", time: "ontem", channel: "Chat", unread: false },
+const initialNotifs = [
+  { id: 1, icon: AlertTriangle, color: "bg-urgent", title: "Crise ativa: Enchentes em Blumenau", desc: "Nova ação urgente a 2.4 km de você. Voluntários necessários para distribuição de cestas.", time: "agora", channel: "WhatsApp", unread: true },
+  { id: 2, icon: Sparkles, color: "bg-ai", title: "IA encontrou um match perfeito!", desc: "Cozinheiros para refeições comunitárias combina 96% com seu perfil.", time: "há 1h", channel: "Push", unread: true },
+  { id: 3, icon: CheckCircle2, color: "bg-success", title: "Sua candidatura foi aprovada", desc: "Mãos que Alimentam confirmou sua participação na ação de manhã.", time: "há 3h", channel: "Email", unread: false },
+  { id: 4, icon: MessageCircle, color: "bg-primary", title: "Mensagem de Cruz Verde Brasil", desc: "Olá Vitória, podemos confirmar você para sábado às 9h?", time: "ontem", channel: "Chat", unread: false },
 ];
 
 export function Notifications() {
+  const [notifs, setNotifs] = useState(initialNotifs);
+
+  function removeNotif(id: number) {
+    setNotifs((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  function clearAll() {
+    setNotifs([]);
+  }
+
   return (
     <AppShell role="volunteer">
-      <h1 className="text-2xl font-bold flex items-center gap-2"><Bell className="h-6 w-6" /> Alertas</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Você recebe notificações por email, WhatsApp e push.</p>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Bell className="h-6 w-6" /> Alertas</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Você recebe notificações por email, WhatsApp e push.</p>
+        </div>
+        {notifs.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground gap-1.5 hover:text-destructive"
+            onClick={clearAll}
+          >
+            <Trash2 className="h-4 w-4" /> Limpar tudo
+          </Button>
+        )}
+      </div>
 
       <div className="mt-6 space-y-3">
-        {notifs.map((n, i) => {
+        {notifs.length === 0 && (
+          <div className="rounded-2xl border border-border/60 bg-card p-10 text-center shadow-soft">
+            <Bell className="mx-auto h-8 w-8 text-muted-foreground/40" />
+            <p className="mt-3 text-sm font-semibold text-muted-foreground">Nenhuma notificação</p>
+            <p className="text-xs text-muted-foreground/70">Você está em dia por aqui.</p>
+          </div>
+        )}
+        {notifs.map((n) => {
           const Icon = n.icon;
           return (
-            <div key={i} className={cn("flex gap-3 border p-4 shadow-soft transition", n.unread ? "border-primary/30 bg-primary/5" : "border-border/60 bg-card")}>
+            <div key={n.id} className={cn("flex gap-3 border p-4 shadow-soft transition", n.unread ? "border-primary/30 bg-primary/5" : "border-border/60 bg-card")}>
               <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white", n.color)}>
                 <Icon className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-bold leading-tight">{n.title}</p>
-                  {n.unread && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {n.unread && <span className="mt-1 h-2 w-2 rounded-full bg-primary" />}
+                    <button
+                      onClick={() => removeNotif(n.id)}
+                      className="rounded-lg p-1 hover:bg-muted transition"
+                      aria-label="Apagar notificação"
+                    >
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{n.desc}</p>
                 <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">

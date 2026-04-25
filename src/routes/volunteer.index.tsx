@@ -5,6 +5,7 @@ import { actions, crises } from "@/lib/mock-data";
 import { Sparkles, Search, Flame, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export const Route = createFileRoute("/volunteer/")({
   head: () => ({
@@ -17,13 +18,19 @@ export const Route = createFileRoute("/volunteer/")({
 });
 
 function VolunteerHome() {
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+
   const recommended = actions.filter((a) => a.isAiRecommended);
 
-  // Build a single timeline mixing recommendations and other actions
+  // Build a single timeline mixing recommendations and other actions, excluding hidden
   const timeline = [
     ...recommended,
     ...actions.filter((a) => !a.isAiRecommended),
-  ];
+  ].filter((a) => !hiddenIds.includes(a.id));
+
+  function handleHide(id: string) {
+    setHiddenIds((prev) => [...prev, id]);
+  }
 
   return (
     <AppShell role="volunteer">
@@ -116,8 +123,13 @@ function VolunteerHome() {
             <TrendingUp className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold">Seu feed</h2>
           </div>
+          {timeline.length === 0 && (
+            <div className="rounded-2xl border border-border/60 bg-card p-8 text-center text-muted-foreground text-sm shadow-soft">
+              Nenhuma ação disponível no seu feed no momento.
+            </div>
+          )}
           {timeline.map((a) => (
-            <ActionPost key={a.id} action={a} />
+            <ActionPost key={a.id} action={a} onHide={handleHide} />
           ))}
         </section>
       </div>

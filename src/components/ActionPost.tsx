@@ -1,9 +1,13 @@
-import { MapPin, Clock, Users, HeartHandshake, Share2, Bookmark, Flame, MoreHorizontal, ThumbsUp, MessageCircle } from "lucide-react";
+import { MapPin, Clock, Users, HeartHandshake, Share2, Bookmark, BookmarkCheck, Flame, MoreHorizontal, MessageCircle, EyeOff, Copy, CheckCircle2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import type { CrisisAction } from "@/lib/mock-data";
 import { helpTypeLabels, urgencyLabels } from "@/lib/mock-data";
+import { useState } from "react";
 
 const urgencyAccent: Record<string, string> = {
   high: "border-l-urgent",
@@ -21,11 +25,112 @@ const urgencyDot: Record<string, string> = {
  * Social-feed-style action post for the volunteer feed.
  * Single-column, full-width, with author + timestamp + action footer.
  */
-export function ActionPost({ action }: { action: CrisisAction }) {
+export function ActionPost({ action, onHide }: { action: CrisisAction; onHide?: (id: string) => void }) {
   const filled = (action.volunteersJoined / action.volunteersNeeded) * 100;
+  const [saved, setSaved] = useState(false);
+  const [questionOpen, setQuestionOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [questionSent, setQuestionSent] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = `${window.location.origin}/volunteer/action/${action.id}`;
+
+  function handleSendQuestion() {
+    if (!question.trim()) return;
+    setQuestionSent(true);
+    setTimeout(() => {
+      setQuestionSent(false);
+      setQuestion("");
+      setQuestionOpen(false);
+    }, 1500);
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
-    <article className={cn(
+    <>
+      {/* Dialog: Pergunta */}
+      <Dialog open={questionOpen} onOpenChange={setQuestionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fazer uma pergunta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-xl bg-muted p-3 text-sm">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-hero text-xs font-bold text-primary-foreground shrink-0">
+                {action.orgAvatar}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{action.org}</p>
+                <p className="text-xs text-muted-foreground truncate">{action.title}</p>
+              </div>
+            </div>
+            <Textarea
+              placeholder="Ex: Preciso levar algum equipamento específico?"
+              className="resize-none"
+              rows={4}
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuestionOpen(false)}>Cancelar</Button>
+            {questionSent ? (
+              <Button className="bg-gradient-hero" disabled>
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Enviada!
+              </Button>
+            ) : (
+              <Button className="bg-gradient-hero" onClick={handleSendQuestion} disabled={!question.trim()}>
+                Enviar pergunta
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Compartilhar */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Compartilhar ação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl bg-muted p-3 text-sm">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-hero text-xs font-bold text-primary-foreground shrink-0">
+                {action.orgAvatar}
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{action.title}</p>
+                <p className="text-xs text-muted-foreground">{action.org} · {action.location}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <span className="flex-1 truncate">{shareUrl}</span>
+              <button
+                onClick={handleCopyLink}
+                className="shrink-0 rounded p-1 hover:bg-muted transition"
+                aria-label="Copiar link"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">Compartilhe o link acima com amigos ou redes sociais.</p>
+          </div>
+          <DialogFooter>
+            <Button className="w-full bg-gradient-hero" onClick={handleCopyLink}>
+              {copied ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Link copiado!</> : <><Copy className="mr-2 h-4 w-4" /> Copiar link</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <article className={cn(
       "bg-card shadow-soft transition-all hover:shadow-elegant",
       urgencyAccent[action.urgency]
     )}>
@@ -51,9 +156,21 @@ export function ActionPost({ action }: { action: CrisisAction }) {
           {urgencyLabels[action.urgency]}
         </span>
 
-        <button className="rounded-lg p-1.5 hover:bg-muted transition" aria-label="Mais opções">
-          <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="rounded-lg p-1.5 hover:bg-muted transition" aria-label="Mais opções">
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              className="text-muted-foreground gap-2 cursor-pointer"
+              onClick={() => onHide?.(action.id)}
+            >
+              <EyeOff className="h-4 w-4" /> Ocultar ação
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {/* Body */}
@@ -93,18 +210,34 @@ export function ActionPost({ action }: { action: CrisisAction }) {
               <HeartHandshake className="h-4 w-4" /> Quero Ajudar
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground gap-1.5"
+            onClick={() => setQuestionOpen(true)}
+          >
             <MessageCircle className="h-4 w-4" /> Pergunta
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground gap-1.5"
+            onClick={() => setShareOpen(true)}
+          >
             <Share2 className="h-4 w-4" /> Compartilhar
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5">
-            <Bookmark className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("gap-1.5 transition-colors", saved ? "text-primary" : "text-muted-foreground")}
+            onClick={() => setSaved((v) => !v)}
+            aria-label={saved ? "Remover dos salvos" : "Salvar"}
+          >
+            {saved ? <BookmarkCheck className="h-4 w-4 fill-primary text-primary" /> : <Bookmark className="h-4 w-4" />}
           </Button>
         </div>
-
       </footer>
     </article>
+    </>
   );
 }
