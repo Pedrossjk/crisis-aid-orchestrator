@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Users, Building2, HeartHandshake, ArrowRight, ArrowLeft, Check, MapPin, Clock, Sparkles, Wrench, Car } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, Building2, HeartHandshake, ArrowRight, ArrowLeft, Check, MapPin, Clock, Sparkles, Wrench, Car, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -32,18 +34,87 @@ const resourceOptions = ["Carro", "Caminhão", "Ferramentas", "Espaço físico",
 
 function Onboarding() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [role, setRole] = useState<Role | null>(null);
   const [help, setHelp] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [resources, setResources] = useState<string[]>([]);
+  // Campos do formulário do passo 1 (controlados para enviar ao banco)
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [availability, setAvailability] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Se não estiver autenticado, manda para /auth (signup) antes do onboarding
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate({ to: "/auth" });
+    }
+  }, [authLoading, user, navigate]);
 
   const toggle = (arr: string[], v: string, set: (a: string[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
-  const finish = () => {
-    if (role === "volunteer") navigate({ to: "/volunteer" });
-    else navigate({ to: "/ong" });
+  // Persiste todo o onboarding no Supabase e redireciona conforme o role
+  const finish = async () => {
+    if (!user || !role) return;
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      // 1) Atualiza o perfil base (criado pelo trigger handle_new_user)
+      const [cityName, stateName] = city.split("/").map((s) => s.trim());
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({
+          full_name: name || null,
+          phone: phone || null,
+          city: cityName || null,
+          state: stateName || null,
+        })
+        .eq("id", user.id);
+      if (profileErr) throw profileErr;
+
+      // 2) Garante o role na tabela user_roles (chave: volunteer | ngo)
+      const dbRole = role === "ong" ? "ngo" : "volunteer";
+      await supabase
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: dbRole }, { onConflict: "user_id,role" });
+
+      // 3) Cria o registro específico do tipo de usuário
+      if (role === "volunteer") {
+        await supabase.from("volunteers").upsert({
+          id: user.id,
+          skills,
+          help_types: help,
+          resources,
+          availability,
+        });
+        navigate({ to: "/volunteer" });
+      } else {
+        // ONG - cria registro mínimo; usuário completa depois no perfil
+        await supabase.from("ngos").upsert(
+          {
+            owner_id: user.id,
+            name: name || "Minha ONG",
+            city: cityName || null,
+            state: stateName || null,
+            offers: help, // o que a ONG oferece (pode editar depois)
+            needs: [],
+          },
+          { onConflict: "owner_id" }
+        );
+        navigate({ to: "/ong" });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao salvar dados";
+      setSaveError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
