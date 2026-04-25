@@ -1,5 +1,5 @@
 export type Urgency = "high" | "medium" | "low";
-export type ActionStatus = "open" | "in_progress" | "completed";
+export type ActionStatus = "open" | "in_progress" | "completed" | "closed";
 export type HelpType = "money" | "food" | "transport" | "service" | "shelter" | "medical" | "supplies";
 
 export interface CrisisAction {
