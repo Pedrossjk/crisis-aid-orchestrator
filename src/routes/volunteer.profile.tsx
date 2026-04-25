@@ -34,7 +34,7 @@ export const Route = createFileRoute("/volunteer/profile")({
 });
 
 function VolunteerProfile() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, setAvatarUrl: setGlobalAvatarUrl } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -52,28 +52,41 @@ function VolunteerProfile() {
   const [draft, setDraft] = useState(profile);
   const [draftSkills, setDraftSkills] = useState<string[]>([]);
   const [newDraftSkill, setNewDraftSkill] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // Load profile from Supabase
   useEffect(() => {
-    if (!user) return;
+    if (authLoading) return;
+    if (!user) {
+      setLoadingProfile(false);
+      return;
+    }
     (async () => {
       setLoadingProfile(true);
-      const [{ data: profileData }, { data: volunteerData }] = await Promise.all([
-        supabase.from("profiles").select("full_name,city,state,bio,avatar_url").eq("id", user.id).maybeSingle(),
-        supabase.from("volunteers").select("skills").eq("id", user.id).maybeSingle(),
-      ]);
-      const fullName = profileData?.full_name ?? user.user_metadata?.full_name ?? "";
-      const city = [profileData?.city, profileData?.state].filter(Boolean).join(", ");
-      setProfile({
-        name: fullName,
-        city: city,
-        bio: profileData?.bio ?? "",
-        avatarUrl: profileData?.avatar_url ?? "",
-      });
-      setSkills(volunteerData?.skills ?? []);
-      setLoadingProfile(false);
+      try {
+        const [{ data: profileData }, { data: volunteerData }] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("full_name,city,state,bio,avatar_url")
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase.from("volunteers").select("skills").eq("id", user.id).maybeSingle(),
+        ]);
+        const fullName = profileData?.full_name ?? user.user_metadata?.full_name ?? "";
+        const city = [profileData?.city, profileData?.state].filter(Boolean).join(", ");
+        setProfile({
+          name: fullName,
+          city: city,
+          bio: profileData?.bio ?? "",
+          avatarUrl: profileData?.avatar_url ?? "",
+        });
+        setSkills(volunteerData?.skills ?? []);
+      } finally {
+        setLoadingProfile(false);
+      }
     })();
-  }, [user]);
+  }, [user, authLoading]);
 
   function openEdit() {
     setDraft(profile);
@@ -85,37 +98,82 @@ function VolunteerProfile() {
   async function saveEdit() {
     if (!user) return;
     setSavingProfile(true);
-    const [cityName, stateName] = draft.city.split(",").map((s) => s.trim());
-    await Promise.all([
-      supabase.from("profiles").update({
-        full_name: draft.name || null,
-        city: cityName || null,
-        state: stateName || null,
-        bio: draft.bio || null,
-      }).eq("id", user.id),
-      supabase.from("volunteers").update({ skills: draftSkills }).eq("id", user.id),
-    ]);
-    setProfile(draft);
-    setSkills(draftSkills);
-    setSavingProfile(false);
-    setEditOpen(false);
+    setSaveError(null);
+    try {
+      const [cityName, stateName] = draft.city.split(",").map((s) => s.trim());
+
+      const { error: profileErr } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          full_name: draft.name || null,
+          city: cityName || null,
+          state: stateName || null,
+          bio: draft.bio || null,
+        },
+        { onConflict: "id" },
+      );
+
+      if (profileErr) throw profileErr;
+
+      const { error: volunteerErr } = await supabase
+        .from("volunteers")
+        .upsert({ id: user.id, skills: draftSkills }, { onConflict: "id" });
+
+      if (volunteerErr) throw volunteerErr;
+
+      // Re-busca do banco para confirmar o que foi realmente persistido
+      const [{ data: profileData }, { data: volunteerData }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("full_name,city,state,bio,avatar_url")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase.from("volunteers").select("skills").eq("id", user.id).maybeSingle(),
+      ]);
+      const fullName = profileData?.full_name ?? user.user_metadata?.full_name ?? "";
+      const city = [profileData?.city, profileData?.state].filter(Boolean).join(", ");
+      setProfile({
+        name: fullName,
+        city,
+        bio: profileData?.bio ?? "",
+        avatarUrl: profileData?.avatar_url ?? "",
+      });
+      setSkills(volunteerData?.skills ?? []);
+      setEditOpen(false);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Erro ao salvar. Tente novamente.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (!upErr) {
+    setAvatarError(null);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
       const avatarUrl = urlData.publicUrl + `?t=${Date.now()}`;
-      await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("id", user.id);
+      if (profileErr) throw profileErr;
       setProfile((p) => ({ ...p, avatarUrl }));
       setDraft((d) => ({ ...d, avatarUrl }));
+      setGlobalAvatarUrl(avatarUrl);
+    } catch (e) {
+      setAvatarError(e instanceof Error ? e.message : "Erro ao enviar foto.");
+    } finally {
+      setUploadingAvatar(false);
     }
-    setUploadingAvatar(false);
   }
 
   function addDraftSkill() {
@@ -163,7 +221,12 @@ function VolunteerProfile() {
                   />
                 ) : (
                   <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-hero text-2xl font-bold text-primary-foreground">
-                    {(draft.name || displayName).split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase()}
+                    {(draft.name || displayName)
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((w: string) => w[0])
+                      .join("")
+                      .toUpperCase()}
                   </div>
                 )}
                 <button
@@ -180,6 +243,7 @@ function VolunteerProfile() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">Toque para alterar foto de perfil</p>
+              {avatarError && <p className="text-xs text-destructive text-center">{avatarError}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -255,11 +319,20 @@ function VolunteerProfile() {
               <Button variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
-              <Button className="flex-1 bg-gradient-hero" onClick={saveEdit} disabled={savingProfile}>
+              <Button
+                className="flex-1 bg-gradient-hero"
+                onClick={saveEdit}
+                disabled={savingProfile}
+              >
                 {savingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar alterações
               </Button>
             </div>
+            {saveError && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {saveError}
+              </p>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -270,13 +343,13 @@ function VolunteerProfile() {
         </div>
       ) : (
         <>
-          <div className="bg-gradient-hero p-6 text-primary-foreground shadow-elegant">
+          <div className="flex justify-between bg-gradient-hero p-6 text-primary-foreground shadow-elegant">
             <div className="flex items-center gap-4">
               {profile.avatarUrl ? (
                 <img
                   src={profile.avatarUrl}
                   alt={displayName}
-                  className="h-16 w-16 rounded-2xl object-cover ring-2 ring-white/20"
+                  className="h-20 w-20 rounded-2xl object-cover ring-2 ring-white/20"
                 />
               ) : (
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold">
@@ -286,27 +359,34 @@ function VolunteerProfile() {
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold">{displayName}</h1>
                 {profile.city && (
-                  <p className="text-sm opacity-90 flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" /> {profile.city}
+                  <p className="mt-2 text-sm opacity-90 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> {profile.city}
                   </p>
                 )}
-                {profile.bio && <p className="mt-1 text-xs opacity-80 line-clamp-2">{profile.bio}</p>}
-              </div>
-              <button
-                onClick={openEdit}
-                className="shrink-0 flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold hover:bg-white/25 transition"
-              >
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </button>
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-              <div><p className="text-2xl font-bold">23</p><p className="text-xs opacity-80">Ações</p></div>
-              <div><p className="text-2xl font-bold">147h</p><p className="text-xs opacity-80">Voluntariado</p></div>
-              <div className="flex flex-col items-center">
-                <p className="text-2xl font-bold flex items-center gap-1"><Star className="h-4 w-4 fill-current" />4.9</p>
-                <p className="text-xs opacity-80">Avaliação</p>
+                {profile.bio && (
+                  <p className="mt-1 text-xs opacity-80 line-clamp-2">{profile.bio}</p>
+                )}
               </div>
             </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-15 text-center px-2">
+              <div>
+                <p className="text-2xl font-bold">23</p>
+                <p className="text-xs opacity-80">Ações</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold">147h</p>
+                <p className="text-xs opacity-80">Voluntariado</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end ">
+            <button
+              onClick={openEdit}
+              className="shrink-0 flex items-center gap-2 px-3 mt-3 text-xs font-semibold  transition h-10 cursor-pointer"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Editar Perfil
+            </button>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -322,10 +402,16 @@ function VolunteerProfile() {
                     params={{ actionId: a.id }}
                     className="flex items-start gap-2.5 rounded-xl bg-muted/60 px-3 py-2.5 transition hover:bg-muted group"
                   >
-                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${a.urgency === "high" ? "bg-urgent" : a.urgency === "medium" ? "bg-warning" : "bg-success"}`} />
+                    <div
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${a.urgency === "high" ? "bg-urgent" : a.urgency === "medium" ? "bg-warning" : "bg-success"}`}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold leading-tight truncate group-hover:text-primary transition-colors">{a.title}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{a.org} · {a.distanceKm} km</p>
+                      <p className="text-xs font-semibold leading-tight truncate group-hover:text-primary transition-colors">
+                        {a.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+                        {a.org} · {a.distanceKm} km
+                      </p>
                     </div>
                     <HeartHandshake className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                   </Link>
@@ -337,9 +423,16 @@ function VolunteerProfile() {
                 <Wrench className="h-4 w-4 text-primary" /> Habilidades
               </h2>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {skills.length > 0 ? skills.map((s) => (
-                  <span key={s} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">{s}</span>
-                )) : (
+                {skills.length > 0 ? (
+                  skills.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    >
+                      {s}
+                    </span>
+                  ))
+                ) : (
                   <p className="text-xs text-muted-foreground">Nenhuma habilidade cadastrada.</p>
                 )}
               </div>
@@ -354,7 +447,10 @@ function VolunteerProfile() {
                 { t: "Triagem de doações — Blumenau", d: "Concluída há 2 semanas", s: "4.8" },
                 { t: "Cozinha solidária — Joinville", d: "Concluída há 1 mês", s: "5.0" },
               ].map((h) => (
-                <div key={h.t} className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 last:border-0">
+                <div
+                  key={h.t}
+                  className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 last:border-0"
+                >
                   <div className="flex items-center gap-3">
                     <CheckCircle2 className="h-5 w-5 text-success" />
                     <div>
@@ -363,7 +459,8 @@ function VolunteerProfile() {
                     </div>
                   </div>
                   <span className="text-xs font-bold flex items-center gap-0.5">
-                    <Star className="h-3 w-3 fill-warning text-warning" />{h.s}
+                    <Star className="h-3 w-3 fill-warning text-warning" />
+                    {h.s}
                   </span>
                 </div>
               ))}

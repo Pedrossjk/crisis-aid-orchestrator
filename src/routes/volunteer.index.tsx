@@ -46,7 +46,7 @@ function VolunteerHome() {
 
   return (
     <AppShell role="volunteer">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         {/* Greeting */}
         <div>
           <h1 className="text-2xl font-bold">Olá, {firstName}</h1>
@@ -70,8 +70,8 @@ function VolunteerHome() {
           <Input placeholder="Buscar ações, ONGs, locais…" className="pl-9 rounded-full bg-card" />
         </div>
 
-        {/* Crisis carousel — horizontal, compact */}
-        <section>
+        {/* Crisis carousel — horizontal, compact DESABILIDADO POR ENQUANTO*/ }
+        {/* <section>
           <div className="mb-3 flex items-center gap-2 px-1">
             <Flame className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold">Ações Recomendadas</h2>
@@ -82,7 +82,7 @@ function VolunteerHome() {
               <div
                 key={c.id}
                 className="snap-start min-w-[220px] relative overflow-hidden p-4 shadow-soft transition-all hover:shadow-elegant cursor-pointer">
-                {/* Header: badge + região */}
+                
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <span className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -107,7 +107,7 @@ function VolunteerHome() {
 
                 <div className="my-3 h-px bg-border/60" />
 
-                {/* Stats */}
+              
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] text-muted-foreground">Afetados</p>
@@ -125,9 +125,7 @@ function VolunteerHome() {
               </div>
             ))}
           </div>
-        </section>
-
-
+        </section> */}
 
         {/* Single-column timeline */}
         <section className="space-y-4">

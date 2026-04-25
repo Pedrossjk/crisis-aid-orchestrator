@@ -104,7 +104,7 @@ function VolunteerMap() {
       <p className="mt-1 text-muted-foreground text-sm">{actions.length} ações ativas próximas a você</p>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-soft">
+        <div className="lg:col-span-2 overflow-hidden  border border-border/60 bg-card shadow-soft">
           <div className="relative h-[60vh] bg-gradient-to-br from-primary/15 via-accent to-ai/15">
             <svg className="absolute inset-0 h-full w-full opacity-30" viewBox="0 0 600 500" preserveAspectRatio="none">
               <defs>
@@ -157,7 +157,7 @@ function VolunteerMap() {
           {actions.slice(0, 5).map((a) => (
             <button
               key={a.id}
-              className="flex w-full items-start gap-3 rounded-xl border border-border/60 bg-card p-3 shadow-soft text-left transition-all hover:shadow-elegant hover:border-primary/30"
+              className="flex w-full items-start gap-3 border border-border/60 bg-card p-3 shadow-soft text-left transition-all hover:shadow-elegant hover:border-primary/30"
               onClick={() => setSelectedAction(a)}
             >
               <div className={cn("mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full", a.urgency === "high" ? "bg-urgent" : a.urgency === "medium" ? "bg-warning" : "bg-success")} />

@@ -36,7 +36,7 @@ function Landing() {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="mt-2 mx-auto flex max-w-full items-center justify-between px-18 py-5 bg-white/80 backdrop-blur-sm shadow-elegant">
+      <header className="mt-2 mx-auto flex max-w-full items-center justify-between px-18   py-5 bg-white/80 backdrop-blur-sm shadow-elegant">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-hero shadow-glow">
             <HeartHandshake className="h-5 w-5 text-primary-foreground" />

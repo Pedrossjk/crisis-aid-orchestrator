@@ -16,7 +16,7 @@ export const Route = createFileRoute("/ong/profile")({
 });
 
 function OngProfile() {
-  const { user } = useAuth();
+  const { user, setAvatarUrl: setGlobalAvatarUrl } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -37,10 +37,66 @@ function OngProfile() {
   const [draftAreas, setDraftAreas] = useState<string[]>([]);
   const [newArea, setNewArea] = useState("");
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!user) return;
     (async () => {
       setLoadingProfile(true);
+      try {
+        const [{ data: profileData }, { data: ongData }] = await Promise.all([
+          supabase.from("profiles").select("full_name,city,state,phone,avatar_url").eq("id", user.id).maybeSingle(),
+          supabase.from("ngos").select("name,description,city,state,website,offers").eq("owner_id", user.id).maybeSingle(),
+        ]);
+        const city = [ongData?.city ?? profileData?.city, ongData?.state ?? profileData?.state].filter(Boolean).join(", ");
+        setProfile({
+          name: ongData?.name ?? profileData?.full_name ?? "",
+          city,
+          description: ongData?.description ?? "",
+          website: ongData?.website ?? "",
+          phone: profileData?.phone ?? "",
+          avatarUrl: profileData?.avatar_url ?? "",
+        });
+        setAreas((ongData?.offers as string[]) ?? []);
+      } finally {
+        setLoadingProfile(false);
+      }
+    })();
+  }, [user]);
+
+  function openEdit() {
+    setDraft(profile);
+    setDraftAreas([...areas]);
+    setNewArea("");
+    setEditOpen(true);
+  }
+
+  async function saveEdit() {
+    if (!user) return;
+    setSavingProfile(true);
+    setSaveError(null);
+    try {
+      const [cityName, stateName] = draft.city.split(",").map((s) => s.trim());
+      const [{ error: profileErr }, { error: ongErr }] = await Promise.all([
+        supabase.from("profiles").upsert({
+          id: user.id,
+          full_name: draft.name || null,
+          city: cityName || null,
+          state: stateName || null,
+          phone: draft.phone || null,
+        }, { onConflict: "id" }),
+        supabase.from("ngos").update({
+          name: draft.name || null,
+          description: draft.description || null,
+          city: cityName || null,
+          state: stateName || null,
+          website: draft.website || null,
+          offers: draftAreas as never[],
+        }).eq("owner_id", user.id),
+      ]);
+      if (profileErr) throw profileErr;
+      if (ongErr) throw ongErr;
+      // Re-busca do banco para confirmar o que foi realmente persistido
       const [{ data: profileData }, { data: ongData }] = await Promise.all([
         supabase.from("profiles").select("full_name,city,state,phone,avatar_url").eq("id", user.id).maybeSingle(),
         supabase.from("ngos").select("name,description,city,state,website,offers").eq("owner_id", user.id).maybeSingle(),
@@ -55,41 +111,12 @@ function OngProfile() {
         avatarUrl: profileData?.avatar_url ?? "",
       });
       setAreas((ongData?.offers as string[]) ?? []);
-      setLoadingProfile(false);
-    })();
-  }, [user]);
-
-  function openEdit() {
-    setDraft(profile);
-    setDraftAreas([...areas]);
-    setNewArea("");
-    setEditOpen(true);
-  }
-
-  async function saveEdit() {
-    if (!user) return;
-    setSavingProfile(true);
-    const [cityName, stateName] = draft.city.split(",").map((s) => s.trim());
-    await Promise.all([
-      supabase.from("profiles").update({
-        full_name: draft.name || null,
-        city: cityName || null,
-        state: stateName || null,
-        phone: draft.phone || null,
-      }).eq("id", user.id),
-      supabase.from("ngos").update({
-        name: draft.name || null,
-        description: draft.description || null,
-        city: cityName || null,
-        state: stateName || null,
-        website: draft.website || null,
-        offers: draftAreas as never[],
-      }).eq("owner_id", user.id),
-    ]);
-    setProfile(draft);
-    setAreas(draftAreas);
-    setSavingProfile(false);
-    setEditOpen(false);
+      setEditOpen(false);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Erro ao salvar. Tente novamente.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -105,6 +132,7 @@ function OngProfile() {
       await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
       setProfile((p) => ({ ...p, avatarUrl }));
       setDraft((d) => ({ ...d, avatarUrl }));
+      setGlobalAvatarUrl(avatarUrl);
     }
     setUploadingAvatar(false);
   }
@@ -199,6 +227,9 @@ function OngProfile() {
               {savingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Salvar alterações
             </Button>
+            {saveError && (
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{saveError}</p>
+            )}
           </div>
         </SheetContent>
       </Sheet>

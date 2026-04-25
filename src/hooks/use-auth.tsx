@@ -20,6 +20,8 @@ interface AuthContextValue {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  avatarUrl: string | null;
+  setAvatarUrl: (url: string | null) => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (
     email: string,
@@ -35,25 +37,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // 1) Registramos o listener PRIMEIRO para capturar qualquer mudança
-    //    (login, logout, refresh de token, recovery, etc.)
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        // Limpa avatar ao fazer logout
+        if (!newSession) setAvatarUrl(null);
       }
     );
 
-    // 2) Em seguida buscamos a sessão atual (caso o usuário já esteja logado)
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setLoading(false);
+      // Carrega avatar inicial do perfil
+      if (data.session?.user) {
+        supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", data.session.user.id)
+          .maybeSingle()
+          .then(({ data: p }) => {
+            if (p?.avatar_url) setAvatarUrl(p.avatar_url);
+          });
+      }
     });
 
-    // Limpeza: cancela a inscrição ao desmontar
     return () => subscription.subscription.unsubscribe();
   }, []);
 
@@ -90,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, loading, signIn, signUp, signOut }}
+      value={{ user, session, loading, avatarUrl, setAvatarUrl, signIn, signUp, signOut }}
     >
       {children}
     </AuthContext.Provider>

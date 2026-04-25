@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Home, Map, Bell, User, LayoutDashboard, Users, Package, HeartHandshake, Sparkles, Network, ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 type Role = "volunteer" | "ong";
 
@@ -24,6 +25,14 @@ const navsByRole: Record<Role, { to: string; label: string; icon: typeof Home }[
 export function AppShell({ role, children }: { role: Role; children: React.ReactNode }) {
   const nav = navsByRole[role];
   const location = useLocation();
+  const { avatarUrl, user } = useAuth();
+
+  const initials = (user?.user_metadata?.full_name as string | undefined)
+    ?.split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() ?? (role === "volunteer" ? "VC" : "CV");
 
   const roleMeta = {
     volunteer: { label: "Voluntário", color: "bg-primary" },
@@ -60,8 +69,11 @@ export function AppShell({ role, children }: { role: Role; children: React.React
               <Bell className="h-5 w-5" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-urgent animate-pulse" />
             </Link>
-            <div className="h-9 w-9 rounded-full bg-gradient-hero flex items-center justify-center text-primary-foreground text-sm font-semibold">
-              {role === "volunteer" ? "VC" : "CV"}
+            <div className="h-9 w-9 rounded-full overflow-hidden bg-gradient-hero flex items-center justify-center text-primary-foreground text-sm font-semibold shrink-0">
+              {avatarUrl
+                ? <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                : initials
+              }
             </div>
           </div>
         </div>
