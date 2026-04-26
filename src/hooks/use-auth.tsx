@@ -85,8 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        // Redireciona após confirmação de email para a home
-        emailRedirectTo: `${window.location.origin}/`,
+        // Redireciona após confirmação de email direto para o onboarding
+        emailRedirectTo: `${window.location.origin}/onboarding`,
         data: {
           // Metadados consumidos pelo trigger handle_new_user
           full_name: fullName,

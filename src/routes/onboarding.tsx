@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Users, Building2, HeartHandshake, ArrowRight, ArrowLeft, Check, MapPin, Clock, Sparkles, Wrench, Car, Loader2, Phone, Globe, Target, HandHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,19 +81,18 @@ function Onboarding() {
   const [ongNeeds, setOngNeeds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Impede que o useEffect resete o step para -1 após o usuário iniciar o cadastro
+  const signupStarted = useRef(false);
 
   // Aguarda o carregamento da sessão antes de decidir qual passo mostrar
-  // Se já está autenticado e já tem role: redireciona para home
-  // Se já está autenticado mas sem role: pula criação de conta (step 0)
-  // Se não está autenticado: mostra step -1 (e-mail + senha)
   useEffect(() => {
-    if (authLoading) return; // ainda verificando sessão
+    if (authLoading) return;
     if (!user) {
-      // usuário não logado → garante que step é -1
-      if (step !== -1) setStep(-1);
+      // Só volta para -1 se o usuário ainda não iniciou o fluxo de cadastro
+      if (!signupStarted.current) setStep(-1);
       return;
     }
-    // usuário já logado — verifica se já completou onboarding
+    // Usuário autenticado — verifica se já completou onboarding
     supabase
       .from("user_roles")
       .select("role")
@@ -111,7 +110,11 @@ function Onboarding() {
 
   // Persiste todo o onboarding no Supabase e redireciona conforme o role
   const finish = async () => {
-    if (!user || !role) return;
+    if (!role) return;
+    if (!user) {
+      setSaveError("Sua sessão expirou. Faça login novamente para continuar.");
+      return;
+    }
     setSaving(true);
     setSaveError(null);
 
@@ -173,13 +176,23 @@ function Onboarding() {
   const handleSignup = async () => {
     setSignupLoading(true);
     setSignupError(null);
+    signupStarted.current = true;
     const { error } = await signUp(signupEmail, signupPassword, "");
     if (error) {
       setSignupError(traduzirErro(error.message));
       setSignupLoading(false);
+      signupStarted.current = false;
       return;
     }
-    setStep(0);
+    // Verifica se a sessão foi criada imediatamente (confirmação de e-mail desativada)
+    // ou se o Supabase exige confirmação antes de logar
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      setStep(0);
+    } else {
+      setSignupError("✉️ Verifique seu e-mail e clique no link de confirmação para ativar sua conta.");
+      signupStarted.current = false;
+    }
     setSignupLoading(false);
   };
 
@@ -343,7 +356,7 @@ function Onboarding() {
                 <>
                   <div>
                     <Label htmlFor="name">Nome completo</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Silva" className="mt-1.5" />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome completo" className="mt-1.5" />
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
