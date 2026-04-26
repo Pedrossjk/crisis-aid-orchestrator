@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { actions, requests, matchedVolunteers, helpTypeLabels, urgencyLabels, type Urgency, type CrisisAction } from "@/lib/mock-data";
+import { actions, requests, helpTypeLabels, urgencyLabels, type Urgency, type ActionStatus, type HelpType, type CrisisAction } from "@/lib/mock-data";
+import { useMatchedVolunteers, type MatchResult } from "@/hooks/use-agent";
 import { Plus, MapPin, Flame, Clock, Users, ListChecks, Inbox, Sparkles, CheckCircle2, Trash2, Pencil, X, Loader2, UserCheck, Star, Send } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ function ActionsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
   // Invite dialog state
-  type InviteVolState = { vol: typeof matchedVolunteers[0] | null; message: string; sending: boolean; sent: boolean };
+  type InviteVolState = { vol: MatchResult | null; message: string; sending: boolean; sent: boolean };
   const [inviteVol, setInviteVol] = useState<InviteVolState>({ vol: null, message: "", sending: false, sent: false });
   const [invitedVols, setInvitedVols] = useState<Set<string>>(new Set());
 
@@ -69,8 +70,121 @@ function ActionsPage() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Real-time AI matching for the open candidates sheet
+  const { results: aiSuggestions, loading: aiLoading } = useMatchedVolunteers(
+    candidatesAction?.id ?? null,
+    candidatesAction?.helpTypes ?? [],
+    candidatesAction?.urgency ?? "medium"
+  );
+
+  // New action form state
+  type NewActionDraft = {
+    title: string; description: string; location: string; effort: string;
+    urgency: Urgency; helpTypes: HelpType[]; volunteersNeeded: number;
+  };
+  const EMPTY_NEW: NewActionDraft = { title: "", description: "", location: "", effort: "", urgency: "medium", helpTypes: [], volunteersNeeded: 10 };
+  const [newDraft, setNewDraft] = useState<NewActionDraft>(EMPTY_NEW);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedOk, setPublishedOk] = useState(false);
+
+  const publishAction = async () => {
+    if (!user || !newDraft.title.trim() || !newDraft.location.trim()) return;
+    setPublishing(true);
+    // Busca ou cria o registro de ONG do usuário logado
+    let { data: ngoRow } = await supabase
+      .from("ngos")
+      .select("id")
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (!ngoRow) {
+      const ongName = (user.user_metadata?.full_name as string | undefined) ?? "ONG";
+      const { data: created } = await supabase
+        .from("ngos")
+        .insert({ owner_id: user.id, name: ongName, offers: [], needs: [] })
+        .select("id")
+        .single();
+      ngoRow = created;
+    }
+    if (!ngoRow) { setPublishing(false); return; }
+    const { data: inserted, error } = await supabase
+      .from("crisis_actions")
+      .insert({
+        ngo_id:            ngoRow.id,
+        title:             newDraft.title.trim(),
+        description:       newDraft.description.trim() || "",
+        location:          newDraft.location.trim(),
+        effort:            newDraft.effort.trim() || "A combinar",
+        urgency:           newDraft.urgency,
+        help_types:        newDraft.helpTypes.length > 0 ? newDraft.helpTypes : [],
+        volunteers_needed: newDraft.volunteersNeeded,
+        volunteers_joined: 0,
+        status:            "open",
+      })
+      .select("id, title, description, location, urgency, effort, help_types, volunteers_needed, volunteers_joined, status, created_at")
+      .single();
+    if (!error && inserted) {
+      const now = new Date();
+      const diffH = Math.floor((now.getTime() - new Date(inserted.created_at as string).getTime()) / 3_600_000);
+      setLocalActions((prev) => [{
+        id:               inserted.id as string,
+        title:            inserted.title as string,
+        description:      (inserted.description as string) ?? "",
+        org:              "ONG",
+        orgAvatar:        "",
+        location:         (inserted.location as string) ?? "",
+        distanceKm:       0,
+        urgency:          inserted.urgency as Urgency,
+        effort:           (inserted.effort as string) ?? "",
+        helpTypes:        (inserted.help_types as HelpType[]) ?? [],
+        volunteersNeeded: (inserted.volunteers_needed as number) ?? 1,
+        volunteersJoined: 0,
+        status:           inserted.status as ActionStatus,
+        postedAgo:        diffH < 1 ? "agora" : `há ${diffH}h`,
+      }, ...prev]);
+      setNewDraft(EMPTY_NEW);
+      setPublishedOk(true);
+      setTimeout(() => setPublishedOk(false), 3000);
+    }
+    setPublishing(false);
+  };
+
   // Local actions state (for status updates / deletions in-session)
   const [localActions, setLocalActions] = useState(actions);
+
+  // Carrega ações reais do Supabase; mantém mock como fallback para dev
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("crisis_actions")
+      .select("id, title, description, location, urgency, effort, help_types, volunteers_needed, volunteers_joined, status, created_at")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const now = new Date();
+        setLocalActions(
+          data.map((row) => {
+            const diffH = Math.floor((now.getTime() - new Date(row.created_at as string).getTime()) / 3_600_000);
+            const postedAgo = diffH < 1 ? "agora" : diffH < 24 ? `há ${diffH}h` : `há ${Math.floor(diffH / 24)}d`;
+            return {
+              id:               row.id as string,
+              title:            row.title as string,
+              description:      (row.description as string) ?? "",
+              org:              "ONG",
+              orgAvatar:        "",
+              location:         (row.location as string) ?? "",
+              distanceKm:       0,
+              urgency:          row.urgency as Urgency,
+              effort:           (row.effort as string) ?? "",
+              helpTypes:        (row.help_types as HelpType[]) ?? [],
+              volunteersNeeded: (row.volunteers_needed as number) ?? 1,
+              volunteersJoined: (row.volunteers_joined as number) ?? 0,
+              status:           row.status as ActionStatus,
+              postedAgo,
+            };
+          })
+        );
+      });
+  }, [user]);
 
   const openCandidates = async (a: CrisisAction) => {
     setCandidatesAction(a);
@@ -149,9 +263,9 @@ function ActionsPage() {
     return `Olá, ${volName}!\n\nSou da ONG ${ongName} e identificamos que o seu perfil tem grande compatibilidade com a nossa ação "${actionTitle}".\n\nGostaríamos de convidá-lo(a) a participar desta iniciativa. Acesse o app para ver todos os detalhes e confirmar sua participação.\n\nCom gratidão,\n${ongName}`;
   };
 
-  const openInviteVol = (v: typeof matchedVolunteers[0]) => {
+  const openInviteVol = (v: MatchResult) => {
     if (!candidatesAction) return;
-    setInviteVol({ vol: v, message: buildVolInviteMsg(v.name, candidatesAction.title), sending: false, sent: false });
+    setInviteVol({ vol: v, message: buildVolInviteMsg(v.name ?? "voluntário", candidatesAction.title), sending: false, sent: false });
   };
 
   const closeInviteVol = () => setInviteVol((s) => ({ ...s, vol: null, sent: false }));
@@ -159,13 +273,9 @@ function ActionsPage() {
   const sendInviteVol = async () => {
     if (!inviteVol.vol || !user) return;
     setInviteVol((s) => ({ ...s, sending: true }));
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .ilike("name", inviteVol.vol.name)
-      .maybeSingle();
+    // volunteerId === profile id === auth user id (mesma FK)
     await supabase.from("notifications").insert({
-      recipient_id: profile?.id ?? null,
+      recipient_id: inviteVol.vol.volunteerId,
       sender_id: user.id,
       sender_name: (user.user_metadata?.full_name as string) ?? "ONG",
       type: "invite",
@@ -174,11 +284,10 @@ function ActionsPage() {
       unread: true,
     });
     setInviteVol((s) => ({ ...s, sending: false, sent: true }));
-    if (inviteVol.vol) setInvitedVols((prev) => new Set([...prev, inviteVol.vol!.id]));
+    if (inviteVol.vol) setInvitedVols((prev) => new Set([...prev, inviteVol.vol!.volunteerId]));
   };
 
-  // AI-suggested volunteers for the selected action (mock: top 3 by matchScore)
-  const suggestedVols = matchedVolunteers.slice(0, 3);
+
 
   return (
     <AppShell role="ong">
@@ -206,7 +315,7 @@ function ActionsPage() {
             {localActions.map((a) => {
               const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
               return (
-                <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft rounded-2xl">
+                <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase flex items-center gap-1", urgencyStyles[a.urgency])}>
                       {a.urgency === "high" && <Flame className="h-3 w-3" />}
@@ -256,7 +365,7 @@ function ActionsPage() {
               {localActions.filter((a) => a.status === "in_progress").map((a) => {
                 const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
                 return (
-                  <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft rounded-2xl">
+                  <div key={a.id} className="border border-border/60 bg-card p-5 shadow-soft">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase flex items-center gap-1", urgencyStyles[a.urgency])}>
                         {a.urgency === "high" && <Flame className="h-3 w-3" />}
@@ -328,49 +437,107 @@ function ActionsPage() {
         </TabsContent>
 
         <TabsContent value="new" className="mt-5">
-          <div className="max-w-2xl rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
+          <div className="max-w-2xl border border-border/60 bg-card p-6 shadow-soft">
             <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> Cadastrar nova ação</h2>
             <p className="mt-1 text-xs text-muted-foreground">A IA usará esses dados para recomendar voluntários ideais.</p>
+            {publishedOk && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/15 px-3 py-2 text-sm font-medium text-success">
+                <CheckCircle2 className="h-4 w-4" /> Ação publicada com sucesso!
+              </div>
+            )}
             <div className="mt-5 space-y-4">
               <div>
-                <Label className="text-xs">Título</Label>
-                <Input placeholder="Ex.: Distribuição de cestas básicas" className="mt-1" />
+                <Label className="text-xs">Título *</Label>
+                <Input
+                  placeholder="Ex.: Distribuição de cestas básicas"
+                  className="mt-1"
+                  value={newDraft.title}
+                  onChange={(e) => setNewDraft((d) => ({ ...d, title: e.target.value }))}
+                />
               </div>
               <div>
                 <Label className="text-xs">Descrição</Label>
-                <Textarea placeholder="Descreva a ação e o tipo de apoio necessário…" className="mt-1 min-h-24" />
+                <Textarea
+                  placeholder="Descreva a ação e o tipo de apoio necessário…"
+                  className="mt-1 min-h-24"
+                  value={newDraft.description}
+                  onChange={(e) => setNewDraft((d) => ({ ...d, description: e.target.value }))}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Localização</Label>
-                  <Input placeholder="Cidade / Estado" className="mt-1" />
+                  <Label className="text-xs">Localização *</Label>
+                  <Input
+                    placeholder="Cidade / Estado"
+                    className="mt-1"
+                    value={newDraft.location}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, location: e.target.value }))}
+                  />
                 </div>
                 <div>
                   <Label className="text-xs">Esforço estimado</Label>
-                  <Input placeholder="Ex.: 4h presencial" className="mt-1" />
+                  <Input
+                    placeholder="Ex.: 4h presencial"
+                    className="mt-1"
+                    value={newDraft.effort}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, effort: e.target.value }))}
+                  />
                 </div>
                 <div>
-                  <Label className="text-xs">Tipo de ajuda</Label>
-                  <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    {Object.entries(helpTypeLabels).map(([k, v]) => <option key={k}>{v}</option>)}
-                  </select>
+                  <Label className="text-xs">Tipos de ajuda</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(Object.keys(helpTypeLabels) as HelpType[]).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setNewDraft((d) => ({
+                          ...d,
+                          helpTypes: d.helpTypes.includes(k)
+                            ? d.helpTypes.filter((t) => t !== k)
+                            : [...d.helpTypes, k],
+                        }))}
+                        className={cn(
+                          "rounded-md border px-2 py-0.5 text-xs font-medium transition-colors",
+                          newDraft.helpTypes.includes(k)
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                        )}
+                      >
+                        {helpTypeLabels[k]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs">Urgência</Label>
-                  <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option>Urgente</option><option>Moderada</option><option>Baixa</option>
+                  <select
+                    className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={newDraft.urgency}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, urgency: e.target.value as Urgency }))}
+                  >
+                    <option value="high">Urgente</option>
+                    <option value="medium">Moderada</option>
+                    <option value="low">Baixa</option>
                   </select>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <Label className="text-xs">Voluntários necessários</Label>
-                  <Input type="number" placeholder="20" className="mt-1" />
-                </div>
-                <div>
-                  <Label className="text-xs">Data limite</Label>
-                  <Input type="date" className="mt-1" />
+                  <Input
+                    type="number"
+                    min={1}
+                    className="mt-1"
+                    value={newDraft.volunteersNeeded}
+                    onChange={(e) => setNewDraft((d) => ({ ...d, volunteersNeeded: parseInt(e.target.value) || 1 }))}
+                  />
                 </div>
               </div>
-              <Button className="w-full bg-gradient-hero shadow-soft">Publicar ação</Button>
+              <Button
+                className="w-full bg-gradient-hero shadow-soft"
+                disabled={publishing || !newDraft.title.trim() || !newDraft.location.trim()}
+                onClick={publishAction}
+              >
+                {publishing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Publicando…</> : <><Plus className="mr-2 h-4 w-4" /> Publicar ação</>}
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -443,44 +610,59 @@ function ActionsPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles className="h-4 w-4 text-ai" />
                 <p className="text-sm font-bold text-gradient-ai">Sugestões da IA</p>
-                <Badge className="bg-ai/10 text-ai text-[10px] h-4 px-1.5">{suggestedVols.length}</Badge>
+                {!aiLoading && (
+                  <Badge className="bg-ai/10 text-ai text-[10px] h-4 px-1.5">{aiSuggestions.length}</Badge>
+                )}
               </div>
               <div className="rounded-xl border border-ai/20 bg-ai/5 px-3 py-2 text-xs text-muted-foreground mb-3">
-                Voluntários com maior compatibilidade de habilidades, disponibilidade e localização para esta ação.
+                Voluntários com maior compatibilidade de habilidades, confiabilidade e avaliação para esta ação.
               </div>
-              <div className="space-y-2">
-                {suggestedVols.map((v) => (
-                  <div key={v.id} className="flex items-center gap-3 rounded-xl border border-ai/20 bg-card p-3 shadow-soft">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold text-sm">
-                      {v.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{v.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                        <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {v.distanceKm}km</span>
-                        <span className="flex items-center gap-0.5"><Star className="h-3 w-3 fill-warning text-warning" /> {v.rating}</span>
-                        <span className="truncate">{v.skills.join(" · ")}</span>
+              {aiLoading ? (
+                <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Analisando voluntários…
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {aiSuggestions.map((v) => (
+                    <div key={v.volunteerId} className="flex items-center gap-3 rounded-xl border border-ai/20 bg-card p-3 shadow-soft">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold text-sm">
+                        {v.initials ?? v.name?.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">{v.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {v.distanceKm != null && (
+                            <span className="flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {v.distanceKm}km</span>
+                          )}
+                          {v.rating != null && (
+                            <span className="flex items-center gap-0.5"><Star className="h-3 w-3 fill-warning text-warning" /> {v.rating.toFixed(1)}</span>
+                          )}
+                          {v.skills && v.skills.length > 0 && (
+                            <span className="truncate">{v.skills.join(" · ")}</span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-ai/70 truncate">{v.reason}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{v.score}%</span>
+                        {invitedVols.has(v.volunteerId) ? (
+                          <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
+                            <CheckCircle2 className="h-3 w-3" /> Convidado
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 px-2.5 text-xs gap-1 bg-gradient-hero"
+                            onClick={() => openInviteVol(v)}
+                          >
+                            <Send className="h-3 w-3" /> Convidar
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{v.matchScore}%</span>
-                      {invitedVols.has(v.id) ? (
-                        <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
-                          <CheckCircle2 className="h-3 w-3" /> Convidado
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="h-7 px-2.5 text-xs gap-1 bg-gradient-hero"
-                          onClick={() => openInviteVol(v)}
-                        >
-                          <Send className="h-3 w-3" /> Convidar
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </SheetContent>
@@ -513,9 +695,9 @@ function ActionsPage() {
                     </div>
                     <div>
                       <p className="font-semibold">{inviteVol.vol.name}</p>
-                      <p className="text-xs text-muted-foreground">{inviteVol.vol.skills.join(" · ")} · {inviteVol.vol.distanceKm}km</p>
+                    <p className="text-xs text-muted-foreground">{(inviteVol.vol?.skills ?? []).join(" · ")}{inviteVol.vol?.distanceKm != null ? ` · ${inviteVol.vol.distanceKm}km` : ""}</p>
                     </div>
-                    <span className="ml-auto rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{inviteVol.vol.matchScore}% match</span>
+                    <span className="ml-auto rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{inviteVol.vol?.score}% match</span>
                   </div>
                 )}
                 {candidatesAction && (

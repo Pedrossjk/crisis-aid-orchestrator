@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { resourceOffers, ngoConnections, helpTypeLabels, type ResourceOffer, type NgoConnection } from "@/lib/mock-data";
-import { Plus, MapPin, Sparkles, Package, Building2, CheckCircle2, Send, Loader2, Network, Phone, Globe } from "lucide-react";
+import { Plus, MapPin, Sparkles, Package, Building2, CheckCircle2, Send, Loader2, Network, Phone, Globe, Pencil, Trash2, Zap, Flame, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -61,6 +61,240 @@ function ResourcesPage() {
   const [contact, setContact] = useState<ContactState>({ ngo: null, message: "", sending: false, sent: false });
   const [resourceProfileNgo, setResourceProfileNgo] = useState<RichNgoProfile | null>(null);
 
+  // Recursos do banco
+  const [localResources, setLocalResources] = useState<ResourceOffer[]>([]);
+  const [loadingRes, setLoadingRes] = useState(true);
+
+  const rowToOffer = (row: Record<string, unknown>): ResourceOffer => ({
+    id:           row.id as string,
+    org:          row.org_name as string,
+    resource:     row.resource as string,
+    category:     row.category as ResourceOffer["category"],
+    quantity:     row.quantity as string,
+    location:     row.location as string,
+    matchedNeeds: 0,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("ngo_resources")
+      .select("*")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setLocalResources(data.map(rowToOffer));
+        setLoadingRes(false);
+      });
+  }, [user]);
+
+  // Formulário de novo recurso
+  const EMPTY_RES = { name: "", description: "", category: "food", quantity: "", location: "", expiresAt: "" };
+  const [resDraft, setResDraft] = useState(EMPTY_RES);
+  const [publishingRes, setPublishingRes] = useState(false);
+  const [publishedResOk, setPublishedResOk] = useState(false);
+
+  const publishResource = async () => {
+    if (!user || !resDraft.name.trim() || !resDraft.location.trim()) return;
+    setPublishingRes(true);
+    const orgName = (user.user_metadata?.full_name as string | undefined) ?? "ONG";
+    const { data, error } = await supabase
+      .from("ngo_resources")
+      .insert({
+        owner_id: user.id,
+        org_name: orgName,
+        resource: resDraft.name.trim(),
+        category: resDraft.category,
+        quantity: resDraft.quantity.trim() || "—",
+        location: resDraft.location.trim(),
+      })
+      .select("*")
+      .single();
+    if (!error && data) {
+      setLocalResources((prev) => [rowToOffer(data as Record<string, unknown>), ...prev]);
+      setResDraft(EMPTY_RES);
+      setPublishedResOk(true);
+      setTimeout(() => setPublishedResOk(false), 3000);
+    }
+    setPublishingRes(false);
+  };
+
+  // Editar / excluir recursos
+  const [editRes, setEditRes] = useState<ResourceOffer | null>(null);
+  const [editDraft, setEditDraft] = useState({ name: "", quantity: "", category: "food", location: "" });
+  const [confirmDelRes, setConfirmDelRes] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEditRes = (r: ResourceOffer) => {
+    setEditRes(r);
+    setEditDraft({ name: r.resource, quantity: r.quantity, category: r.category, location: r.location });
+    setConfirmDelRes(false);
+  };
+
+  const saveEditRes = async () => {
+    if (!editRes) return;
+    setSavingEdit(true);
+    await supabase
+      .from("ngo_resources")
+      .update({
+        resource: editDraft.name.trim() || editRes.resource,
+        quantity: editDraft.quantity.trim() || editRes.quantity,
+        category: editDraft.category,
+        location: editDraft.location.trim() || editRes.location,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editRes.id);
+    setLocalResources((prev) =>
+      prev.map((r) => r.id === editRes.id
+        ? { ...r, resource: editDraft.name.trim() || r.resource, quantity: editDraft.quantity.trim() || r.quantity, category: editDraft.category as ResourceOffer["category"], location: editDraft.location.trim() || r.location }
+        : r)
+    );
+    setSavingEdit(false);
+    setEditRes(null);
+  };
+
+  const deleteRes = async () => {
+    if (!editRes) return;
+    await supabase.from("ngo_resources").delete().eq("id", editRes.id);
+    setLocalResources((prev) => prev.filter((r) => r.id !== editRes.id));
+    setEditRes(null);
+    setConfirmDelRes(false);
+  };
+
+  // Match recurso ↔ ações via agente
+  type MatchPair = {
+    resourceId: string; resourceName: string; orgName: string; quantity: string;
+    resourceLocation: string; actionId: string; actionTitle: string;
+    actionLocation: string; urgency: string; coveragePct: number; score: number; reason: string;
+  };
+  const [actionMatchRes, setActionMatchRes] = useState<ResourceOffer | null>(null);
+  const [actionMatches, setActionMatches] = useState<MatchPair[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+
+  // Matching client-side (evita dependência de build do endpoint)
+  function tokenize(text: string): Set<string> {
+    return new Set(
+      text.toLowerCase().normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/).filter((t) => t.length > 2)
+    );
+  }
+  function jaccardScore(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 || b.size === 0) return 0;
+    let inter = 0;
+    a.forEach((t) => { if (b.has(t)) inter++; });
+    return inter / (a.size + b.size - inter);
+  }
+  const URGENCY_BONUS: Record<string, number> = { high: 20, medium: 10, low: 5 };
+
+  const fetchActionMatches = async (r: ResourceOffer) => {
+    setActionMatchRes(r);
+    setActionMatches([]);
+    setMatchError(null);
+    setLoadingMatches(true);
+    try {
+      const { data: actions, error } = await supabase
+        .from("crisis_actions")
+        .select("id, title, description, help_types, urgency, location, volunteers_needed, volunteers_joined")
+        .eq("status", "open")
+        .limit(100);
+      if (error || !actions) throw new Error(error?.message ?? "Erro ao buscar ações");
+      const resTokens = tokenize(r.resource);
+      const pairs: MatchPair[] = [];
+      for (const action of actions) {
+        const helpTypes: string[] = (action.help_types as string[]) ?? [];
+        let score = 0;
+        const reasons: string[] = [];
+        // Categoria
+        if (helpTypes.includes(r.category)) {
+          score += 50;
+          reasons.push(`categoria '${r.category}' coincide`);
+        }
+        // Palavras-chave
+        const actTokens = tokenize(`${action.title ?? ""} ${action.description ?? ""}`);
+        const jac = jaccardScore(resTokens, actTokens);
+        const kwScore = Math.round(jac * 30);
+        if (kwScore > 0) { score += kwScore; reasons.push(`${kwScore} pts por palavras-chave`); }
+        // Urgência
+        const urgBonus = URGENCY_BONUS[action.urgency as string] ?? 5;
+        score += urgBonus;
+        reasons.push(`urgência ${action.urgency}`);
+        if (score < 30) continue;
+        const coveragePct = (action.volunteers_needed as number) > 0
+          ? Math.round(((action.volunteers_joined as number) / (action.volunteers_needed as number)) * 100)
+          : 0;
+        pairs.push({
+          resourceId: r.id, resourceName: r.resource, orgName: r.org,
+          quantity: r.quantity, resourceLocation: r.location,
+          actionId: action.id as string, actionTitle: action.title as string,
+          actionLocation: action.location as string, urgency: action.urgency as string,
+          coveragePct, score: Math.min(100, score), reason: reasons.join("; "),
+        });
+      }
+      pairs.sort((a, b) => b.score - a.score);
+      setActionMatches(pairs.slice(0, 10));
+    } catch (err) {
+      setMatchError(err instanceof Error ? err.message : "Erro desconhecido");
+    }
+    setLoadingMatches(false);
+  };
+
+  // Oferecer ajuda para uma ação
+  type OfferState = { match: MatchPair | null; message: string; sending: boolean; sent: boolean };
+  const [offer, setOffer] = useState<OfferState>({ match: null, message: "", sending: false, sent: false });
+
+  const buildOfferMsg = (m: MatchPair): string => {
+    const ongName = (user?.user_metadata?.full_name as string | undefined) ?? "nossa ONG";
+    return `Olá! Somos a ${ongName} e identificamos que temos um recurso que pode ajudar diretamente a sua ação "${m.actionTitle}".\n\nRecurso disponível: ${m.resourceName} (${m.quantity}) em ${m.resourceLocation}.\n\nGostaríamos de oferecer esta ajuda e coordenar a entrega conforme sua necessidade.\n\nCom gratidão,\n${ongName}`;
+  };
+
+  const openOffer = (m: MatchPair) => {
+    setOffer({ match: m, message: buildOfferMsg(m), sending: false, sent: false });
+  };
+
+  const sendOffer = async () => {
+    if (!offer.match || !user) return;
+    setOffer((s) => ({ ...s, sending: true }));
+
+    // Descobre o ngo owner_id da ação para saber o destinatário
+    const { data: actionRow } = await supabase
+      .from("crisis_actions")
+      .select("ngo_id")
+      .eq("id", offer.match.actionId)
+      .maybeSingle();
+
+    let recipientId: string | null = null;
+    if (actionRow?.ngo_id) {
+      const { data: ngoRow } = await supabase
+        .from("ngos")
+        .select("owner_id")
+        .eq("id", actionRow.ngo_id)
+        .maybeSingle();
+      recipientId = (ngoRow?.owner_id as string | null) ?? null;
+    }
+
+    const ongName = (user.user_metadata?.full_name as string | undefined) ?? "ONG";
+    const initials = ongName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+
+    await supabase.from("ngo_help_offers").insert({
+      sender_id:       user.id,
+      sender_name:     ongName,
+      sender_initials: initials,
+      sender_city:     "",
+      resource_name:   offer.match.resourceName,
+      resource_qty:    offer.match.quantity,
+      action_id:       offer.match.actionId,
+      action_title:    offer.match.actionTitle,
+      recipient_ngo_id: recipientId,
+      message:         offer.message,
+      match_score:     offer.match.score,
+    });
+
+    setOffer((s) => ({ ...s, sending: false, sent: true }));
+  };
+
   const buildContactMsg = (ngoName: string, resource: ResourceOffer): string => {
     const ongName = (user?.user_metadata?.full_name as string | undefined) ?? "nossa ONG";
     return `Olá, ${ngoName}!\n\nSou da ONG ${ongName} e identificamos que vocês podem se beneficiar do nosso recurso disponível: ${resource.resource} (${resource.quantity}) localizado em ${resource.location}.\n\nGostaríamos de entrar em contato para discutir como podemos colaborar nessa iniciativa.\n\nCom gratidão,\n${ongName}`;
@@ -103,9 +337,20 @@ function ResourcesPage() {
         </TabsList>
 
         <TabsContent value="mine" className="mt-5">
+          {loadingRes ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" /> Carregando recursos…
+            </div>
+          ) : localResources.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <Package className="mx-auto h-10 w-10 opacity-30" />
+              <p className="mt-3 font-medium">Nenhum recurso cadastrado ainda</p>
+              <p className="mt-1 text-sm">Use a aba “Cadastrar recurso” para adicionar.</p>
+            </div>
+          ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {resourceOffers.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-border/60 bg-card p-5 shadow-soft">
+            {localResources.map((r) => (
+              <div key={r.id} className="border border-border/60 bg-card p-5 shadow-soft">
                 <div className="flex items-center justify-between">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ai/10 text-ai"><Package className="h-5 w-5" /></div>
                   <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai flex items-center gap-1"><Sparkles className="h-2.5 w-2.5" />{r.matchedNeeds} matches</span>
@@ -120,53 +365,271 @@ function ResourcesPage() {
                   variant="outline"
                   size="sm"
                   className="mt-4 w-full gap-1.5"
-                  onClick={() => { setMatchesResource(r); setContactedNgos(new Set()); }}
+                  onClick={() => fetchActionMatches(r)}
                 >
                   <Sparkles className="h-3.5 w-3.5 text-ai" /> Ver matches
                 </Button>
+                <div className="mt-2 flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditRes(r)}>
+                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 gap-1 text-destructive hover:bg-destructive/10" onClick={() => { setEditRes(r); setConfirmDelRes(true); }}>
+                    <Trash2 className="h-3.5 w-3.5" /> Excluir
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="new" className="mt-5">
-          <div className="max-w-2xl rounded-2xl border border-border/60 bg-card p-6 shadow-soft">
+          <div className="max-w-2xl border border-border/60 bg-card p-6 shadow-soft">
             <h2 className="font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> Cadastrar recurso disponível</h2>
             <p className="mt-1 text-xs text-muted-foreground">Descreva o recurso. A IA encontrará automaticamente ONGs que precisam.</p>
+            {publishedResOk && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">
+                <CheckCircle2 className="h-4 w-4 shrink-0" /> Recurso publicado com sucesso!
+              </div>
+            )}
             <div className="mt-5 space-y-4">
               <div>
                 <Label className="text-xs">Nome do recurso</Label>
-                <Input placeholder="Ex.: 300 cestas básicas" className="mt-1" />
+                <Input placeholder="Ex.: 300 cestas básicas" className="mt-1"
+                  value={resDraft.name} onChange={(e) => setResDraft((d) => ({ ...d, name: e.target.value }))} />
               </div>
               <div>
                 <Label className="text-xs">Descrição</Label>
-                <Textarea placeholder="Detalhes, condições de retirada, validade…" className="mt-1 min-h-20" />
+                <Textarea placeholder="Detalhes, condições de retirada, validade…" className="mt-1 min-h-20"
+                  value={resDraft.description} onChange={(e) => setResDraft((d) => ({ ...d, description: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Categoria</Label>
-                  <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    {Object.entries(helpTypeLabels).map(([k, v]) => <option key={k}>{v}</option>)}
+                  <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={resDraft.category} onChange={(e) => setResDraft((d) => ({ ...d, category: e.target.value }))}>
+                    {Object.entries(helpTypeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>
                 <div>
                   <Label className="text-xs">Quantidade</Label>
-                  <Input placeholder="Ex.: 300 unidades" className="mt-1" />
+                  <Input placeholder="Ex.: 300 unidades" className="mt-1"
+                    value={resDraft.quantity} onChange={(e) => setResDraft((d) => ({ ...d, quantity: e.target.value }))} />
                 </div>
                 <div>
                   <Label className="text-xs">Localização</Label>
-                  <Input placeholder="Cidade / Estado" className="mt-1" />
+                  <Input placeholder="Cidade / Estado" className="mt-1"
+                    value={resDraft.location} onChange={(e) => setResDraft((d) => ({ ...d, location: e.target.value }))} />
                 </div>
                 <div>
                   <Label className="text-xs">Disponível até</Label>
-                  <Input type="date" className="mt-1" />
+                  <Input type="date" className="mt-1"
+                    value={resDraft.expiresAt} onChange={(e) => setResDraft((d) => ({ ...d, expiresAt: e.target.value }))} />
                 </div>
               </div>
-              <Button className="w-full bg-gradient-ai text-ai-foreground shadow-soft">Publicar recurso</Button>
+              <Button
+                className="w-full bg-gradient-ai text-ai-foreground shadow-soft"
+                onClick={publishResource}
+                disabled={publishingRes || !resDraft.name.trim() || !resDraft.location.trim()}
+              >
+                {publishingRes ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Package className="mr-2 h-4 w-4" />}
+                Publicar recurso
+              </Button>
             </div>
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* ── Action Matches Sheet ── */}
+      <Sheet open={!!actionMatchRes} onOpenChange={(open) => { if (!open) setActionMatchRes(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="mb-5">
+            <SheetTitle className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-ai" />
+              <span className="text-gradient-ai">Ações que precisam deste recurso</span>
+            </SheetTitle>
+            {actionMatchRes && (
+              <p className="text-xs text-muted-foreground truncate">
+                Recurso: <span className="font-medium text-foreground">{actionMatchRes.resource}</span> · {actionMatchRes.quantity}
+              </p>
+            )}
+          </SheetHeader>
+
+          <div className="rounded-xl border border-ai/20 bg-ai/5 px-3 py-2 text-xs text-muted-foreground mb-4">
+            A IA analisou a descrição do recurso e das ações abertas e ranqueou por compatibilidade de categoria e palavras-chave.
+          </div>
+
+          {loadingMatches ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Analisando com IA…
+            </div>
+          ) : matchError ? (
+            <div className="py-12 text-center text-destructive">
+              <AlertCircle className="mx-auto h-8 w-8 opacity-60" />
+              <p className="mt-3 font-medium">Erro ao buscar matches</p>
+              <p className="text-xs mt-1 text-muted-foreground">{matchError}</p>
+            </div>
+          ) : actionMatches.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">
+              <AlertCircle className="mx-auto h-8 w-8 opacity-30" />
+              <p className="mt-3 font-medium">Nenhum match encontrado</p>
+              <p className="text-sm mt-1">Nenhuma ação aberta compatível com este recurso no momento.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {actionMatches.map((m, i) => (
+                <div key={`${m.resourceId}-${m.actionId}`} className="rounded-2xl border border-ai/20 bg-card p-4 shadow-soft">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {i === 0 && <span className="rounded-full bg-ai/15 px-2 py-0.5 text-[10px] font-bold text-ai flex items-center gap-0.5"><Sparkles className="h-2.5 w-2.5" /> Melhor match</span>}
+                        <p className="font-semibold text-sm">{m.actionTitle}</p>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{m.actionLocation}</span>
+                        <span className="flex items-center gap-1">
+                          {m.urgency === "high" ? <Flame className="h-3 w-3 text-urgent" /> : null}
+                          {m.urgency === "high" ? "Urgente" : m.urgency === "medium" ? "Média" : "Baixa"}
+                        </span>
+                        <span>{m.coveragePct}% coberto</span>
+                      </div>
+                      <p className="mt-2 text-[11px] text-muted-foreground italic">{m.reason}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-ai/10 px-2.5 py-1 text-sm font-bold text-ai">{m.score}%</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mt-3 w-full gap-1.5 bg-gradient-hero"
+                    onClick={() => openOffer(m)}
+                  >
+                    <Send className="h-3.5 w-3.5" /> Oferecer ajuda
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Offer Help Dialog ── */}
+      <Dialog open={!!offer.match} onOpenChange={(open) => { if (!open) setOffer({ match: null, message: "", sending: false, sent: false }); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" /> Oferecer ajuda
+            </DialogTitle>
+          </DialogHeader>
+          {offer.sent ? (
+            <div className="py-6 text-center space-y-3">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15">
+                <CheckCircle2 className="h-8 w-8 text-success" />
+              </div>
+              <p className="font-semibold">Oferta enviada!</p>
+              <p className="text-sm text-muted-foreground">
+                A ONG responsável pela ação <strong>{offer.match?.actionTitle}</strong> receberá sua proposta e poderá aceitar ou recusar.
+              </p>
+              <Button className="w-full mt-2" onClick={() => setOffer({ match: null, message: "", sending: false, sent: false })}>Fechar</Button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 py-2">
+                {offer.match && (
+                  <div className="flex items-center gap-3 rounded-xl bg-muted p-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold text-sm">
+                      <Building2 className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{offer.match.actionTitle}</p>
+                      <p className="text-xs text-muted-foreground">{offer.match.actionLocation}</p>
+                    </div>
+                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">{offer.match.score}% match</span>
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">
+                    Mensagem <span className="text-muted-foreground font-normal">(editável)</span>
+                  </label>
+                  <Textarea
+                    value={offer.message}
+                    onChange={(e) => setOffer((s) => ({ ...s, message: e.target.value }))}
+                    rows={8}
+                    className="resize-none text-sm"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOffer({ match: null, message: "", sending: false, sent: false })} disabled={offer.sending}>Cancelar</Button>
+                <Button onClick={sendOffer} disabled={offer.sending || !offer.message.trim()} className="bg-gradient-hero">
+                  {offer.sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Enviar oferta
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Resource Sheet ── */}
+      <Sheet open={!!editRes && !confirmDelRes} onOpenChange={(open) => { if (!open) setEditRes(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="mb-5">
+            <SheetTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-primary" /> Editar recurso
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Nome do recurso</Label>
+              <Input className="mt-1" value={editDraft.name} onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Quantidade</Label>
+              <Input className="mt-1" value={editDraft.quantity} onChange={(e) => setEditDraft((d) => ({ ...d, quantity: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Categoria</Label>
+              <select className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={editDraft.category} onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value }))}>
+                {Object.entries(helpTypeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs">Localização</Label>
+              <Input className="mt-1" value={editDraft.location} onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))} />
+            </div>
+          </div>
+          <div className="mt-6 flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setEditRes(null)}>Cancelar</Button>
+            <Button className="flex-1 bg-gradient-hero" onClick={saveEditRes} disabled={savingEdit || !editDraft.name.trim()}>
+              {savingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Salvar alterações
+            </Button>
+          </div>
+          <div className="mt-4 border-t pt-4">
+            <Button variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setConfirmDelRes(true)}>
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Excluir recurso
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Confirm Delete Resource Dialog ── */}
+      <Dialog open={confirmDelRes} onOpenChange={(open) => { if (!open) { setConfirmDelRes(false); setEditRes(null); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" /> Excluir recurso
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir <strong>{editRes?.resource}</strong>? Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setConfirmDelRes(false); setEditRes(null); }}>Cancelar</Button>
+            <Button variant="destructive" onClick={deleteRes}>Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Matches Sheet ── */}
       <Sheet open={!!matchesResource} onOpenChange={(open) => { if (!open) setMatchesResource(null); }}>

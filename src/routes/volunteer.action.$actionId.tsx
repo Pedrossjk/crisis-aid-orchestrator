@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { actions, type CrisisAction, helpTypeLabels, urgencyLabels, type Urgency, type HelpType } from "@/lib/mock-data";
+import { actions as mockActions, type CrisisAction, helpTypeLabels, urgencyLabels, type Urgency, type HelpType } from "@/lib/mock-data";
 import { ArrowLeft, MapPin, Clock, Users, Share2, Flame, Navigation, Car, Sparkles, CheckCircle2, Send, Loader2, Check, Building2, Phone, Globe, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useMyScoreForAction } from "@/hooks/use-agent";
+import { cityToCoords } from "@/lib/matching";
 
 type OngProfile = {
   name: string;
@@ -62,8 +64,97 @@ function NotFound() {
 
 function ActionDetail() {
   const { actionId } = Route.useParams();
-  const action: CrisisAction | undefined = actions.find((a) => a.id === actionId);
   const { user } = useAuth();
+
+  const [action, setAction] = useState<CrisisAction | undefined>(
+    mockActions.find((a) => a.id === actionId)
+  );
+  const [actionCoords, setActionCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [loadingAction, setLoadingAction] = useState(!action);
+
+  // GPS do usuário → fallback por cidade (mesmo padrão do feed)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number; source: "gps" | "city" } | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    const tryCity = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("city")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const coords = cityToCoords(data?.city);
+      if (coords) setUserCoords({ lat: coords[0], lon: coords[1], source: "city" });
+    };
+    if (!navigator.geolocation) { tryCity(); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude, source: "gps" }),
+      () => tryCity(),
+      { timeout: 4000 }
+    );
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Busca ação real do banco (IDs do banco são UUIDs, não "a1","a2"…)
+  useEffect(() => {
+    if (action) return; // já achou no mock, não precisa buscar
+    setLoadingAction(true);
+    supabase
+      .from("crisis_actions")
+      .select("id, title, description, location, latitude, longitude, urgency, effort, help_types, volunteers_needed, volunteers_joined, status, created_at, ngos!inner(name, initials)")
+      .eq("id", actionId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const ngo = (data as { ngos?: { name?: string; initials?: string } }).ngos;
+          const now = new Date();
+          const diffH = Math.floor((now.getTime() - new Date(data.created_at as string).getTime()) / 3_600_000);
+          setAction({
+            id:               data.id as string,
+            title:            data.title as string,
+            description:      (data.description as string) ?? "",
+            org:              ngo?.name ?? "ONG",
+            orgAvatar:        ngo?.initials ?? "NG",
+            location:         (data.location as string) ?? "",
+            distanceKm:       0,
+            urgency:          data.urgency as Urgency,
+            effort:           (data.effort as string) ?? "",
+            helpTypes:        (data.help_types as HelpType[]) ?? [],
+            volunteersNeeded: (data.volunteers_needed as number) ?? 1,
+            volunteersJoined: (data.volunteers_joined as number) ?? 0,
+            status:           data.status as "open" | "in_progress" | "completed" | "closed",
+            postedAgo:        diffH < 1 ? "agora" : diffH < 24 ? `há ${diffH}h` : `há ${Math.floor(diffH / 24)}d`,
+          });
+          const lat = data.latitude as number | null;
+          const lon = data.longitude as number | null;
+          if (lat != null && lon != null) {
+            setActionCoords({ lat, lon });
+          } else {
+            // Fallback: extrai cidade do campo location e usa CITY_COORDS
+            const fallback = cityToCoords((data.location as string) ?? "");
+            if (fallback) setActionCoords({ lat: fallback[0], lon: fallback[1] });
+          }
+        }
+        setLoadingAction(false);
+      });
+  }, [actionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback de coords da ação: tenta parsear city do campo location quando não há lat/lon do banco
+  const resolvedActionCoords = actionCoords ?? (() => {
+    if (!action) return null;
+    const c = cityToCoords(action.location);
+    return c ? { lat: c[0], lon: c[1] } : null;
+  })();
+
+  const myScore = useMyScoreForAction(
+    user?.id ?? null,
+    action?.id ?? null,
+    userCoords?.lat ?? null,
+    userCoords?.lon ?? null,
+    resolvedActionCoords?.lat ?? null,
+    resolvedActionCoords?.lon ?? null,
+    action?.helpTypes ?? [],
+    (action?.urgency ?? "medium") as "high" | "medium" | "low",
+    userCoords?.source ?? null
+  );
 
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyMsg, setApplyMsg] = useState("");
@@ -73,6 +164,15 @@ function ActionDetail() {
   const [shared, setShared] = useState(false);
   const [ongSheetOpen, setOngSheetOpen] = useState(false);
 
+  if (loadingAction) {
+    return (
+      <AppShell role="volunteer">
+        <div className="flex items-center justify-center py-24 gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /> Carregando ação…
+        </div>
+      </AppShell>
+    );
+  }
   if (!action) return <NotFound />;
 
   const ongProfile: OngProfile =
@@ -156,7 +256,12 @@ function ActionDetail() {
               </span>
               {action.isAiRecommended && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-gradient-ai px-2.5 py-1 text-[10px] font-bold uppercase text-ai-foreground">
-                  <Sparkles className="h-3 w-3" /> Match 94% para você
+                  <Sparkles className="h-3 w-3" /> Match {myScore.score > 0 ? `${myScore.score}%` : "recomendado"} para você
+                </span>
+              )}
+              {!action.isAiRecommended && !myScore.loading && myScore.score > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-ai px-2.5 py-1 text-[10px] font-bold uppercase text-ai-foreground">
+                  <Sparkles className="h-3 w-3" /> Match {myScore.score}% para você
                 </span>
               )}
             </div>
@@ -179,7 +284,11 @@ function ActionDetail() {
             <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
               <div className="rounded-xl bg-muted p-3">
                 <MapPin className="h-4 w-4 text-primary" />
-                <p className="mt-1 font-semibold">{action.distanceKm} km</p>
+                <p className="mt-1 font-semibold">
+                  {myScore.loading
+                    ? <Loader2 className="inline h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                    : myScore.distanceKm != null ? `${myScore.distanceKm} km` : "—"}
+                </p>
                 <p className="text-xs text-muted-foreground">{action.location}</p>
               </div>
               <div className="rounded-xl bg-muted p-3">
@@ -225,18 +334,38 @@ function ActionDetail() {
             <div className="grid grid-cols-3 gap-3 p-4">
               <div className="text-center">
                 <Navigation className="mx-auto h-4 w-4 text-primary" />
-                <p className="mt-1 text-sm font-bold">{action.distanceKm} km</p>
-                <p className="text-xs text-muted-foreground">Distância</p>
+                <p className="mt-1 text-sm font-bold">
+                  {myScore.loading ? (
+                    <Loader2 className="inline h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : myScore.distanceKm != null ? (
+                    `${myScore.distanceKm} km`
+                  ) : "— km"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {myScore.distanceSource === "city" ? "Dist. aprox." : "Distância"}
+                </p>
               </div>
               <div className="text-center">
                 <Clock className="mx-auto h-4 w-4 text-primary" />
-                <p className="mt-1 text-sm font-bold">{Math.round(action.distanceKm * 2.5)} min</p>
+                <p className="mt-1 text-sm font-bold">
+                  {myScore.loading ? (
+                    <Loader2 className="inline h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : myScore.travelMinutes != null ? (
+                    `${myScore.travelMinutes} min`
+                  ) : "— min"}
+                </p>
                 <p className="text-xs text-muted-foreground">Tempo est.</p>
               </div>
               <div className="text-center">
                 <Car className="mx-auto h-4 w-4 text-primary" />
-                <p className="mt-1 text-sm font-bold">R$ {(action.distanceKm * 0.8).toFixed(2)}</p>
-                <p className="text-xs text-muted-foreground">Custo est.</p>
+                <p className="mt-1 text-sm font-bold">
+                  {myScore.loading ? (
+                    <Loader2 className="inline h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : myScore.fuelCostBrl != null ? (
+                    `R$ ${myScore.fuelCostBrl.toFixed(2)}`
+                  ) : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Gasolina est.</p>
               </div>
             </div>
           </div>
@@ -255,12 +384,32 @@ function ActionDetail() {
           </div>
 
           <div className="rounded-2xl bg-gradient-ai p-5 text-ai-foreground shadow-elegant">
-            <Sparkles className="h-5 w-5" />
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              {!myScore.loading && myScore.score > 0 && (
+                <span className="ml-auto text-lg font-black">{myScore.score}%</span>
+              )}
+            </div>
             <p className="mt-2 text-xs font-bold uppercase tracking-wider opacity-80">Análise da IA</p>
-            <p className="mt-1 text-sm leading-relaxed">
-              Esta ação combina perfeitamente com suas habilidades de logística e disponibilidade nas tardes.
-              Você está a apenas {action.distanceKm}km do local.
-            </p>
+            {myScore.loading ? (
+              <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculando compatibilidade…
+              </div>
+            ) : (
+              <>
+                <p className="mt-1 text-sm leading-relaxed">{myScore.reason || "Perfil compatível com esta ação."}</p>
+                {myScore.distanceKm != null && (
+                  <p className="mt-2 text-xs opacity-75">
+                    📍 {myScore.distanceKm} km do local
+                    {myScore.distanceSource === "city" && " (aprox., baseado na sua cidade)"}
+                    {" "}· ~{myScore.travelMinutes} min de carro · est. R$ {myScore.fuelCostBrl?.toFixed(2)} de gasolina
+                  </p>
+                )}
+                {myScore.distanceKm == null && actionCoords && (
+                  <p className="mt-2 text-xs opacity-75">Permita localização para calcular distância.</p>
+                )}
+              </>
+            )}
           </div>
 
           <div className="sticky bottom-24 md:bottom-4 space-y-2">

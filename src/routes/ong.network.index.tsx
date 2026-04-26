@@ -1,18 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { ngoConnections, type NgoConnection } from "@/lib/mock-data";
-import { Building2, MapPin, Network, MessageCircle, UserCheck, X, Phone, Globe, Info } from "lucide-react";
+import {
+  Building2,
+  MapPin,
+  Network,
+  MessageCircle,
+  UserCheck,
+  X,
+  Phone,
+  Globe,
+  Info,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/ong/network/")({
   head: () => ({
     meta: [
       { title: "ONGs por ONGs — Orquestra" },
-      { name: "description", content: "Cooperação entre instituições: matches da IA, conexões ativas e ONGs próximas." },
+      {
+        name: "description",
+        content: "Cooperação entre instituições: matches da IA, conexões ativas e ONGs próximas.",
+      },
     ],
   }),
   component: NetworkPage,
@@ -42,12 +57,14 @@ const initialPendingRequests: PendingRequest[] = [
     city: "Florianópolis, SC",
     topic: "Equipe médica",
     actionTitle: "Atendimento médico voluntário",
-    message: "Olá! Identificamos que vocês estão com a ação \"Atendimento médico voluntário\" e temos uma equipe médica disponível que pode apoiar diretamente. Gostaríamos de colaborar!",
+    message:
+      'Olá! Identificamos que vocês estão com a ação "Atendimento médico voluntário" e temos uma equipe médica disponível que pode apoiar diretamente. Gostaríamos de colaborar!',
     receivedAgo: "há 2h",
     matchScore: 88,
     website: "saudesemfronteiras.org.br",
     phone: "(48) 99123-4567",
-    description: "Organização sem fins lucrativos que fornece atendimento médico de emergência em zonas de crise e desastres naturais.",
+    description:
+      "Organização sem fins lucrativos que fornece atendimento médico de emergência em zonas de crise e desastres naturais.",
     areas: ["Saúde", "Triagem", "Medicina de emergência"],
   },
   {
@@ -57,12 +74,14 @@ const initialPendingRequests: PendingRequest[] = [
     city: "Joinville, SC",
     topic: "Alimentos e cobertores",
     actionTitle: "Distribuição de cestas básicas — Blumenau",
-    message: "Prezados, vimos sua ação \"Distribuição de cestas básicas\" e temos 200 cestas e cobertores que poderiam ser destinados imediatamente. Podemos colaborar com logística também!",
+    message:
+      'Prezados, vimos sua ação "Distribuição de cestas básicas" e temos 200 cestas e cobertores que poderiam ser destinados imediatamente. Podemos colaborar com logística também!',
     receivedAgo: "há 5h",
     matchScore: 79,
     website: "lardospequenos.org",
     phone: "(47) 3322-1100",
-    description: "Abrigo e centro de apoio à infância vulnerável em situação de calamidade pública.",
+    description:
+      "Abrigo e centro de apoio à infância vulnerável em situação de calamidade pública.",
     areas: ["Abrigo infantil", "Alimentação", "Educação emergencial"],
   },
   {
@@ -72,22 +91,57 @@ const initialPendingRequests: PendingRequest[] = [
     city: "Blumenau, SC",
     topic: "Materiais de construção",
     actionTitle: "Suporte de TI para abrigo",
-    message: "Olá! Vimos que vocês estão coordenando ações em Blumenau e temos equipes de voluntários e materiais disponíveis que poderiam reforçar diretamente sua operação. Topa uma parceria?",
+    message:
+      "Olá! Vimos que vocês estão coordenando ações em Blumenau e temos equipes de voluntários e materiais disponíveis que poderiam reforçar diretamente sua operação. Topa uma parceria?",
     receivedAgo: "há 1 dia",
     matchScore: 72,
     website: "reconstruirsc.com.br",
     phone: "(47) 3012-9988",
-    description: "Iniciativa focada na reconstrução habitacional emergencial em zonas afetadas por desastres climáticos.",
+    description:
+      "Iniciativa focada na reconstrução habitacional emergencial em zonas afetadas por desastres climáticos.",
     areas: ["Construção civil", "Logística", "Engenharia voluntária"],
   },
 ];
 
 function NetworkPage() {
+  const { user } = useAuth();
   const [localPending, setLocalPending] = useState<PendingRequest[]>(initialPendingRequests);
   const [localAccepted, setLocalAccepted] = useState<NgoConnection[]>([]);
   const [profileNgo, setProfileNgo] = useState<PendingRequest | null>(null);
 
-  const acceptRequest = (r: PendingRequest) => {
+  // Carrega ofertas reais do banco
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("ngo_help_offers")
+      .select("*")
+      .eq("recipient_ngo_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const dbRequests: PendingRequest[] = data.map((row) => ({
+          id:           row.id as string,
+          org:          row.sender_name as string,
+          orgInitials:  row.sender_initials as string,
+          city:         row.sender_city as string || "—",
+          topic:        row.resource_name as string,
+          message:      row.message as string,
+          receivedAgo:  "agora",
+          matchScore:   row.match_score as number,
+          actionTitle:  row.action_title as string,
+        }));
+        setLocalPending((prev) => [
+          ...dbRequests,
+          // mantém mocks que não foram substituídos por registros reais
+          ...prev.filter((p) => !dbRequests.find((d) => d.id === p.id)),
+        ]);
+      });
+  }, [user]);
+
+  const acceptRequest = async (r: PendingRequest) => {
+    // Atualiza no banco se for uma oferta real (UUID v4)
+    await supabase.from("ngo_help_offers").update({ status: "accepted" }).eq("id", r.id);
     setLocalPending((prev) => prev.filter((p) => p.id !== r.id));
     setLocalAccepted((prev) => [
       ...prev,
@@ -105,7 +159,8 @@ function NetworkPage() {
     ]);
   };
 
-  const rejectRequest = (id: string) => {
+  const rejectRequest = async (id: string) => {
+    await supabase.from("ngo_help_offers").update({ status: "rejected" }).eq("id", id);
     setLocalPending((prev) => prev.filter((p) => p.id !== id));
   };
 
@@ -117,20 +172,26 @@ function NetworkPage() {
         <Network className="h-7 w-7 text-ai" />
         <span className="text-gradient-ai">ONGs por ONGs</span>
       </h1>
-      <p className="mt-1 text-muted-foreground">Gerencie as conexões com outras instituições e receba ofertas de ajuda para suas ações.</p>
+      <p className="mt-1 text-muted-foreground">
+        Gerencie as conexões com outras instituições e receba ofertas de ajuda para suas ações.
+      </p>
 
       <Tabs defaultValue="active" className="mt-6">
         <TabsList>
           <TabsTrigger value="active">
             Conexões ativas
             {allActive.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">{allActive.length}</span>
+              <span className="ml-1.5 rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">
+                {allActive.length}
+              </span>
             )}
           </TabsTrigger>
           <TabsTrigger value="needs">
             Solicitações de ajuda
             {localPending.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning">{localPending.length}</span>
+              <span className="ml-1.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning">
+                {localPending.length}
+              </span>
             )}
           </TabsTrigger>
         </TabsList>
@@ -148,17 +209,23 @@ function NetworkPage() {
                 key={c.id}
                 to="/ong/network/$connectionId"
                 params={{ connectionId: c.id }}
-                className="flex items-center gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-soft hover:shadow-elegant transition"
+                className="flex items-center gap-4 border border-border/60 bg-card p-4 shadow-soft hover:shadow-elegant transition"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold">{c.orgInitials}</div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold">
+                  {c.orgInitials}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold truncate">{c.org}</p>
-                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">{c.matchScore}%</span>
+                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">
+                      {c.matchScore}%
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{c.matchedItem}</p>
                   <div className="mt-1 flex items-center gap-2 text-[11px]">
-                    <span className="rounded-full px-2 py-0.5 font-medium bg-success/15 text-success">Ativa</span>
+                    <span className="rounded-full px-2 py-0.5 font-medium bg-success/15 text-success">
+                      Ativa
+                    </span>
                     <span className="text-muted-foreground">{c.lastMessageAgo}</span>
                   </div>
                 </div>
@@ -183,7 +250,7 @@ function NetworkPage() {
             </div>
           ) : (
             localPending.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+              <div key={r.id} className="border border-border/60 bg-card p-4 shadow-soft">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-ai text-ai-foreground font-bold">
                     {r.orgInitials}
@@ -191,26 +258,47 @@ function NetworkPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold">{r.org}</p>
-                      <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">{r.matchScore}% match</span>
+                      <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">
+                        {r.matchScore}% match
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <MapPin className="h-3 w-3" /> {r.city} · {r.topic}
                     </p>
                   </div>
-                  <span className="text-[11px] text-muted-foreground shrink-0">{r.receivedAgo}</span>
+                  <div className="grid text-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-xs"
+                      onClick={() => setProfileNgo(r)}
+                    >
+                      <Info className="h-3 w-3" /> Ver perfil
+                    </Button>
+                    <span className="text-[11px] text-muted-foreground shrink-0 px-3 py-2">
+                      {r.receivedAgo}
+                    </span>
+                  </div>
                 </div>
                 {r.actionTitle && (
                   <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-primary/5 border border-primary/20 px-3 py-1.5 text-xs">
                     <Info className="h-3 w-3 text-primary shrink-0" />
-                    <span className="text-muted-foreground">Para a ação: <span className="font-medium text-foreground">{r.actionTitle}</span></span>
+                    <span className="text-muted-foreground">
+                      Para a ação:{" "}
+                      <span className="font-medium text-foreground">{r.actionTitle}</span>
+                    </span>
                   </div>
                 )}
                 <p className="mt-2 text-xs text-muted-foreground italic bg-muted/40 rounded-lg px-3 py-2 line-clamp-2">
                   "{r.message}"
                 </p>
                 <div className="mt-3 flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setProfileNgo(r)}>
-                    <Info className="h-3 w-3" /> Ver perfil
+                  <Button
+                    size="sm"
+                    className="flex-1 text-xs gap-1 bg-gradient-hero"
+                    onClick={() => acceptRequest(r)}
+                  >
+                    <UserCheck className="h-3 w-3" /> Aceitar ajuda
                   </Button>
                   <Button
                     variant="outline"
@@ -220,13 +308,6 @@ function NetworkPage() {
                   >
                     <X className="h-3 w-3" /> Recusar
                   </Button>
-                  <Button
-                    size="sm"
-                    className="flex-1 text-xs gap-1 bg-gradient-hero"
-                    onClick={() => acceptRequest(r)}
-                  >
-                    <UserCheck className="h-3 w-3" /> Aceitar ajuda
-                  </Button>
                 </div>
               </div>
             ))
@@ -235,7 +316,12 @@ function NetworkPage() {
       </Tabs>
 
       {/* ── Profile Sheet (solicitações) ── */}
-      <Sheet open={!!profileNgo} onOpenChange={(open) => { if (!open) setProfileNgo(null); }}>
+      <Sheet
+        open={!!profileNgo}
+        onOpenChange={(open) => {
+          if (!open) setProfileNgo(null);
+        }}
+      >
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader className="mb-5">
             <SheetTitle className="flex items-center gap-2">
@@ -269,15 +355,24 @@ function NetworkPage() {
                   </div>
                 )}
                 <div>
-                  <p className="text-[11px] font-medium uppercase text-muted-foreground">Área de atuação</p>
+                  <p className="text-[11px] font-medium uppercase text-muted-foreground">
+                    Área de atuação
+                  </p>
                   <p className="mt-1 text-sm font-medium">{profileNgo.topic}</p>
                 </div>
                 {profileNgo.areas && profileNgo.areas.length > 0 && (
                   <div>
-                    <p className="text-[11px] font-medium uppercase text-muted-foreground">Especialidades</p>
+                    <p className="text-[11px] font-medium uppercase text-muted-foreground">
+                      Especialidades
+                    </p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {profileNgo.areas.map((a) => (
-                        <span key={a} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{a}</span>
+                        <span
+                          key={a}
+                          className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                        >
+                          {a}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -298,8 +393,12 @@ function NetworkPage() {
 
               {/* Mensagem recebida */}
               <div>
-                <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">Mensagem enviada</p>
-                <p className="text-sm text-muted-foreground bg-muted/40 rounded-xl p-3 italic">"{profileNgo.message}"</p>
+                <p className="text-[11px] font-medium uppercase text-muted-foreground mb-1">
+                  Mensagem enviada
+                </p>
+                <p className="text-sm text-muted-foreground bg-muted/40 rounded-xl p-3 italic">
+                  "{profileNgo.message}"
+                </p>
               </div>
 
               {/* Actions */}
@@ -311,13 +410,19 @@ function NetworkPage() {
                   <Button
                     variant="outline"
                     className="flex-1 gap-1 text-destructive border-destructive/40 hover:bg-destructive/5"
-                    onClick={() => { rejectRequest(profileNgo.id); setProfileNgo(null); }}
+                    onClick={() => {
+                      rejectRequest(profileNgo.id);
+                      setProfileNgo(null);
+                    }}
                   >
                     <X className="h-4 w-4" /> Recusar
                   </Button>
                   <Button
                     className="flex-1 gap-1 bg-gradient-hero"
-                    onClick={() => { acceptRequest(profileNgo); setProfileNgo(null); }}
+                    onClick={() => {
+                      acceptRequest(profileNgo);
+                      setProfileNgo(null);
+                    }}
                   >
                     <UserCheck className="h-4 w-4" /> Aceitar ajuda
                   </Button>
