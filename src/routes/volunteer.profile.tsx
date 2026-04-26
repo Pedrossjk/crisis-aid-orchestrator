@@ -343,50 +343,52 @@ function VolunteerProfile() {
         </div>
       ) : (
         <>
-          <div className="flex justify-between bg-gradient-hero p-6 text-primary-foreground shadow-elegant">
-            <div className="flex items-center gap-4">
+          <div className="bg-gradient-hero px-5 pt-5 pb-4 text-primary-foreground shadow-elegant">
+            {/* Avatar + nome + edit */}
+            <div className="flex items-start gap-4">
               {profile.avatarUrl ? (
                 <img
                   src={profile.avatarUrl}
                   alt={displayName}
-                  className="h-20 w-20 rounded-2xl object-cover ring-2 ring-white/20"
+                  className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-2 ring-white/20"
                 />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-xl font-bold">
                   {initials}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl font-bold">{displayName}</h1>
+                <div className="flex items-start justify-between gap-2">
+                  <h1 className="text-xl font-bold leading-tight break-words">{displayName}</h1>
+                  <button
+                    onClick={openEdit}
+                    className="shrink-0 flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-semibold hover:bg-white/20 transition"
+                  >
+                    <Pencil className="h-3 w-3" /> Editar
+                  </button>
+                </div>
                 {profile.city && (
-                  <p className="mt-2 text-sm opacity-90 flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {profile.city}
+                  <p className="mt-1 text-sm opacity-90 flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" /> {profile.city}
                   </p>
                 )}
                 {profile.bio && (
-                  <p className="mt-1 text-xs opacity-80 line-clamp-2">{profile.bio}</p>
+                  <p className="mt-1 text-xs opacity-80 line-clamp-2 leading-relaxed">{profile.bio}</p>
                 )}
               </div>
             </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-15 text-center px-2">
+            {/* Stats */}
+            <div className="mt-4 flex items-center gap-6">
               <div>
                 <p className="text-2xl font-bold">23</p>
                 <p className="text-xs opacity-80">Ações</p>
               </div>
+              <div className="h-8 w-px bg-white/20" />
               <div>
                 <p className="text-2xl font-bold">147h</p>
                 <p className="text-xs opacity-80">Voluntariado</p>
               </div>
             </div>
-          </div>
-          <div className="flex justify-end ">
-            <button
-              onClick={openEdit}
-              className="shrink-0 flex items-center gap-2 px-3 mt-3 text-xs font-semibold  transition h-10 cursor-pointer"
-            >
-              <Pencil className="h-3.5 w-3.5" /> Editar Perfil
-            </button>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">

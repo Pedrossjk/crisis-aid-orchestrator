@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { ActionPost } from "@/components/ActionPost";
-import { actions, crises } from "@/lib/mock-data";
-import { Sparkles, Search, Flame, TrendingUp } from "lucide-react";
+import { actions as mockActions, type CrisisAction, type HelpType, type Urgency } from "@/lib/mock-data";
+import { Sparkles, Search, Loader2, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useRecommendedActionIds } from "@/hooks/use-agent";
+import { useAgentRecommendations } from "@/hooks/use-agent";
+import { supabase } from "@/integrations/supabase/client";
+import { haversineKm, distanceToScore, cityToCoords } from "@/lib/matching";
 
 export const Route = createFileRoute("/volunteer/")({
   head: () => ({
@@ -22,23 +23,152 @@ export const Route = createFileRoute("/volunteer/")({
 function VolunteerHome() {
   const { user } = useAuth();
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dbActions, setDbActions] = useState<CrisisAction[]>([]);
+  const [actionCoords, setActionCoords] = useState<Map<string, { lat: number; lon: number }>>(new Map());
+  const [userCoords, setUserCoords] = useState<{ lat: number; lon: number } | null>(null);
 
-  // Recomendações personalizadas pelo motor de matching
-  // Usa dados reais do Supabase; cai para isAiRecommended se banco vazio
-  const { recommendedIds } = useRecommendedActionIds(user?.id ?? null);
+  // Pega GPS do usuário; fallback para cidade do perfil se negado/timeout
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const tryGps = () => {
+      if (!navigator.geolocation) {
+        tryCity();
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        () => tryCity(), // GPS negado ou timeout
+        { timeout: 5000 }
+      );
+    };
+
+    const tryCity = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("city")
+        .eq("id", user!.id)
+        .maybeSingle();
+      const coords = cityToCoords(data?.city);
+      if (coords) setUserCoords({ lat: coords[0], lon: coords[1] });
+    };
+
+    tryGps();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Carrega ações reais do banco (inclui lat/lon); usa mock como fallback
+  useEffect(() => {
+    supabase
+      .from("crisis_actions")
+      .select("id, title, description, location, latitude, longitude, urgency, effort, help_types, volunteers_needed, volunteers_joined, status, created_at, ngos!inner(name, initials)")
+      .in("status", ["open", "in_progress"])
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const now = new Date();
+        const coords = new Map<string, { lat: number; lon: number }>();
+        setDbActions(
+          data.map((row) => {
+            const ngo = (row as { ngos?: { name?: string; initials?: string } }).ngos;
+            const diffH = Math.floor((now.getTime() - new Date(row.created_at as string).getTime()) / 3_600_000);
+            const lat = row.latitude as number | null;
+            const lon = row.longitude as number | null;
+            if (lat != null && lon != null) coords.set(row.id as string, { lat, lon });
+            return {
+              id:               row.id as string,
+              title:            row.title as string,
+              description:      (row.description as string) ?? "",
+              org:              ngo?.name ?? "ONG",
+              orgAvatar:        ngo?.initials ?? "NG",
+              location:         (row.location as string) ?? "",
+              distanceKm:       0,
+              urgency:          row.urgency as Urgency,
+              effort:           (row.effort as string) ?? "",
+              helpTypes:        (row.help_types as HelpType[]) ?? [],
+              volunteersNeeded: (row.volunteers_needed as number) ?? 1,
+              volunteersJoined: (row.volunteers_joined as number) ?? 0,
+              status:           row.status as "open" | "in_progress" | "completed" | "closed",
+              postedAgo:        diffH < 1 ? "agora" : diffH < 24 ? `há ${diffH}h` : `há ${Math.floor(diffH / 24)}d`,
+            };
+          })
+        );
+        setActionCoords(coords);
+      });
+  }, []);
+
+  // Recalcula distâncias quando o GPS chega
+  const actionsWithDistance = useMemo(() => {
+    if (!userCoords || dbActions.length === 0) return dbActions;
+    return dbActions.map((a) => {
+      const c = actionCoords.get(a.id);
+      if (!c) return a;
+      return { ...a, distanceKm: parseFloat(haversineKm(userCoords.lat, userCoords.lon, c.lat, c.lon).toFixed(1)) };
+    });
+  }, [userCoords, dbActions, actionCoords]);
+
+  // Recomendações personalizadas PELO AGENTE (endpoint real, scores 0-100)
+  const agentRec = useAgentRecommendations(user?.id ?? null);
+
+  // Mapa actionId → score do agente
+  const agentScoreMap = useMemo(() => {
+    const m = new Map<string, number>();
+    agentRec.recommendations.forEach((r) => m.set(r.actionId, r.score));
+    return m;
+  }, [agentRec.recommendations]);
+
+  const agentActionIds = useMemo(
+    () => new Set(agentRec.recommendations.map((r) => r.actionId)),
+    [agentRec.recommendations]
+  );
 
   const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "Voluntário";
 
-  const isAiRec = (a: typeof actions[0]) =>
-    recommendedIds.length > 0 ? recommendedIds.includes(a.id) : a.isAiRecommended;
+  const allActions = actionsWithDistance.length > 0 ? actionsWithDistance : (dbActions.length > 0 ? dbActions : mockActions);
 
-  const recommended = actions.filter(isAiRec);
+  // Uma ação é considerada "recomendada" se está no top-50% dos scores do agente
+  // (ou seja, score >= 50). Quando o agente retornou resultados mas sem IDs
+  // reconhecidos (UUIDs diferentes entre mock e DB), usa limiar de score.
+  const isAiRec = (a: CrisisAction): boolean => {
+    if (agentActionIds.size > 0) return agentActionIds.has(a.id);
+    // Agente não retornou nada: aceita a flag da mock data como fallback
+    return !!a.isAiRecommended;
+  };
 
-  // Build a single timeline mixing recommendations and other actions, excluding hidden
-  const timeline = [
-    ...recommended,
-    ...actions.filter((a) => !isAiRec(a)),
-  ].filter((a) => !hiddenIds.includes(a.id));
+  // Score combinado: score real do agente (85%) + proximidade geográfica (15%)
+  function combinedScore(a: CrisisAction): number {
+    const agentScore = agentScoreMap.get(a.id);
+    if (agentScore != null) {
+      const dScore = a.distanceKm > 0 ? distanceToScore(a.distanceKm) : 50;
+      return agentScore * 0.85 + dScore * 0.15;
+    }
+    // Fallback enquanto carrega (sem score do agente ainda)
+    const matchScore = isAiRec(a) ? 70 : 30;
+    const dScore = a.distanceKm > 0 ? distanceToScore(a.distanceKm) : 50;
+    return matchScore * 0.55 + dScore * 0.45;
+  }
+
+  // "Recomendadas" = ações que o agente incluiu no resultado (todas têm score)
+  // Quando o agente retornou scores, todas as ações do DB que batem aparecem
+  const recommended = agentActionIds.size > 0
+    ? allActions.filter((a) => agentActionIds.has(a.id))
+    : allActions.filter((a) => !!a.isAiRecommended);
+
+  // Total de ações analisadas: prefere do agente, fallback para o que carregou no DB
+  const totalAnalyzed = agentRec.totalActions > 0 ? agentRec.totalActions : allActions.length;
+
+  // Timeline única ordenada por score combinado, excluindo hidden e aplicando busca
+  const q = searchQuery.trim().toLowerCase();
+  const timeline = allActions
+    .filter((a) => !hiddenIds.includes(a.id))
+    .filter((a) =>
+      !q ||
+      a.title.toLowerCase().includes(q) ||
+      a.description.toLowerCase().includes(q) ||
+      a.org.toLowerCase().includes(q) ||
+      a.location.toLowerCase().includes(q)
+    )
+    .sort((a, b) => combinedScore(b) - combinedScore(a));
 
   function handleHide(id: string) {
     setHiddenIds((prev) => [...prev, id]);
@@ -51,23 +181,44 @@ function VolunteerHome() {
         <div>
           <h1 className="text-2xl font-bold">Olá, {firstName}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            <span className="font-semibold text-ai">{recommended.length} ações ideais</span> esperando por você hoje.
+            <span className="font-semibold text-ai">{recommended.length} ações recomendadas</span> pelo agente para você hoje.
           </p>
         </div>
 
         {/* AI recommendation strip */}
-        <div className="flex items-center gap-3 bg-gradient-hero  p-4 text-ai-foreground shadow-soft">
-          <Sparkles className="h-5 w-5 shrink-0" />
+        <div className="flex items-start gap-3 bg-gradient-hero p-4 text-ai-foreground shadow-soft">
+          <Sparkles className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="flex-1 text-sm">
-            <p className="font-semibold">Feed personalizado pela IA</p>
-            <p className="text-xs opacity-90">Ordenado por compatibilidade com suas habilidades e localização.</p>
+            {agentRec.loading ? (
+              <>
+                <p className="font-semibold flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Agente analisando ações…
+                </p>
+                <p className="text-xs opacity-90">Calculando compatibilidade com seu perfil.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">
+                  A IA analisou {totalAnalyzed} ações ativas
+                </p>
+                <p className="text-xs opacity-90">
+                  {recommended.length} recomendadas para você · ordenadas por compatibilidade real
+                  {agentRec.hasDistanceData && " + distância"}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
         {/* Compact search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar ações, ONGs, locais…" className="pl-9 rounded-full bg-card" />
+          <Input
+            placeholder="Buscar ações, ONGs, locais…"
+            className="pl-9 rounded-full bg-card"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
 
         {/* Crisis carousel — horizontal, compact DESABILIDADO POR ENQUANTO*/ }

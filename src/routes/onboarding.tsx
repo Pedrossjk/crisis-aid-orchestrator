@@ -82,12 +82,29 @@ function Onboarding() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Se já estiver autenticado (ex: acesso direto), pula a etapa de criação de conta
+  // Aguarda o carregamento da sessão antes de decidir qual passo mostrar
+  // Se já está autenticado e já tem role: redireciona para home
+  // Se já está autenticado mas sem role: pula criação de conta (step 0)
+  // Se não está autenticado: mostra step -1 (e-mail + senha)
   useEffect(() => {
-    if (!authLoading && user && step === -1) {
-      setStep(0);
+    if (authLoading) return; // ainda verificando sessão
+    if (!user) {
+      // usuário não logado → garante que step é -1
+      if (step !== -1) setStep(-1);
+      return;
     }
-  }, [authLoading, user, step]);
+    // usuário já logado — verifica se já completou onboarding
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.role === "ngo") navigate({ to: "/ong" });
+        else if (data?.role === "volunteer") navigate({ to: "/volunteer" });
+        else if (step === -1) setStep(0); // autenticado mas sem role ainda
+      });
+  }, [authLoading, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (arr: string[], v: string, set: (a: string[]) => void) =>
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -156,7 +173,7 @@ function Onboarding() {
   const handleSignup = async () => {
     setSignupLoading(true);
     setSignupError(null);
-    const { error } = await signUp(signupEmail, signupPassword, name);
+    const { error } = await signUp(signupEmail, signupPassword, "");
     if (error) {
       setSignupError(traduzirErro(error.message));
       setSignupLoading(false);
@@ -188,23 +205,20 @@ function Onboarding() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-8 md:py-12">
+        {/* Aguardando verificação de sessão */}
+        {authLoading && (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
         {/* Step -1: Criar conta */}
-        {step === -1 && (
+        {!authLoading && step === -1 && (
           <div>
             <h1 className="text-3xl font-bold md:text-4xl">Crie sua conta</h1>
             <p className="mt-2 text-muted-foreground">Em poucos passos você faz parte da rede de ajuda.</p>
 
             <div className="mt-8 space-y-4">
-              <div>
-                <Label htmlFor="signup-name">Nome completo</Label>
-                <Input
-                  id="signup-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Maria Silva"
-                  className="mt-1.5"
-                />
-              </div>
               <div>
                 <Label htmlFor="signup-email">E-mail</Label>
                 <Input
@@ -605,7 +619,7 @@ function Onboarding() {
           {step === -1 ? (
             <Button
               onClick={handleSignup}
-              disabled={signupLoading || !name || !signupEmail || !signupPassword}
+              disabled={signupLoading || !signupEmail || !signupPassword}
               className="bg-gradient-hero shadow-soft"
             >
               {signupLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

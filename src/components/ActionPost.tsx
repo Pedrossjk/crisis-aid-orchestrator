@@ -149,7 +149,7 @@ export function ActionPost({ action, onHide }: { action: CrisisAction; onHide?: 
             <MapPin className="h-3 w-3" />
             <span className="truncate">{action.location}</span>
             <span>·</span>
-            <span>{action.distanceKm} km</span>
+            <span>{action.distanceKm > 0 ? `${action.distanceKm} km` : "—"}</span>
           </div>
         </div>
         <span className={cn("hidden sm:inline-flex items-center gap-1 rounded-full bg-ai/10 px-2 py-0.5 text-[11px] text-white", urgencyDot[action.urgency])}>
@@ -191,14 +191,14 @@ export function ActionPost({ action, onHide }: { action: CrisisAction; onHide?: 
       </div>
 
       {/* Stats strip */}
-      <div className="mx-5 mt-4 flex items-center gap-4 rounded-xl bg-muted/50 px-4 py-2.5 text-xs">
-        <div className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{action.effort}</span>
+      <div className="mx-5 mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-4 py-2.5 text-xs">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">{action.effort}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-          <span><strong>{action.volunteersJoined}</strong>/{action.volunteersNeeded} voluntários</span>
+          <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span><strong>{action.volunteersJoined}</strong>/{action.volunteersNeeded} vagas</span>
         </div>
       </div>
 

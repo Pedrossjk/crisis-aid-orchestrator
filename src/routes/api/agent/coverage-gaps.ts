@@ -17,11 +17,16 @@ import { findCoverageGaps, type ActionInput } from "@/lib/matching";
 export const APIRoute = createAPIFileRoute("/api/agent/coverage-gaps")({
   GET: async ({ request }) => {
     // ── Auth ────────────────────────────────────────────────
-    const apiKey = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const token = request.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
     const expected = process.env.AGENT_API_KEY;
-    if (expected && apiKey !== expected) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    let authed = !expected; // sem env → aberto (dev local)
+    if (!authed && token === expected) authed = true; // IBM Orchestrate
+    if (!authed) {
+      // Tenta JWT Supabase (browser autenticado)
+      const { data: { user: sessionUser } } = await supabaseAdmin.auth.getUser(token);
+      authed = !!sessionUser;
     }
+    if (!authed) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const url = new URL(request.url);
     const thresholdPct = parseInt(url.searchParams.get("threshold") ?? "60", 10);

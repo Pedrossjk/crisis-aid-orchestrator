@@ -1,16 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import {
-  actions,
-  matchedVolunteers,
   ngoConnections,
   helpTypeLabels,
   urgencyLabels,
   type Urgency,
-  type Volunteer,
+  type HelpType,
   type NgoConnection,
 } from "@/lib/mock-data";
+import { useMatchedVolunteers, useAgentCoverageGaps, type MatchResult } from "@/hooks/use-agent";
 import {
   Plus,
   Sparkles,
@@ -64,6 +63,20 @@ const urgencyStyles: Record<Urgency, string> = {
   low: "bg-success text-success-foreground",
 };
 
+type DbAction = {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  urgency: Urgency;
+  effort: string;
+  helpTypes: HelpType[];
+  volunteersNeeded: number;
+  volunteersJoined: number;
+  status: string;
+  postedAgo: string;
+};
+
 type PendingRequest = {
   id: string;
   org: string;
@@ -101,14 +114,15 @@ const initialPendingRequests: PendingRequest[] = [
 ];
 
 type InviteState = {
-  volunteer: Volunteer | null;
+  volunteer: MatchResult | null;
   message: string;
   sending: boolean;
   sent: boolean;
 };
 
-function buildInviteMessage(ongName: string, volunteer: Volunteer): string {
-  return `Olá, ${volunteer.name}!\n\nSou da ONG ${ongName} e acreditamos que o seu perfil se encaixa perfeitamente com o nosso trabalho. Suas habilidades em ${volunteer.skills.join(" e ")} seriam de grande valor para as nossas ações.\n\nGostaríamos de convidá-lo(a) para fazer parte do nosso time de voluntários. Aguardamos seu contato!\n\nCom gratidão,\n${ongName}`;
+function buildInviteMessage(ongName: string, volunteer: MatchResult): string {
+  const skills = (volunteer.skills ?? []).join(" e ") || "voluntariado";
+  return `Olá, ${volunteer.name ?? "voluntário"}!\n\nSou da ONG ${ongName} e acreditamos que o seu perfil se encaixa perfeitamente com o nosso trabalho. Suas habilidades em ${skills} seriam de grande valor para as nossas ações.\n\nGostaríamos de convidá-lo(a) para fazer parte do nosso time de voluntários. Aguardamos seu contato!\n\nCom gratidão,\n${ongName}`;
 }
 
 function OngDashboard() {
@@ -125,8 +139,61 @@ function OngDashboard() {
   const [localPending, setLocalPending] = useState<PendingRequest[]>(initialPendingRequests);
   const [localAccepted, setLocalAccepted] = useState<NgoConnection[]>([]);
   const [profileNgo, setProfileNgo] = useState<PendingRequest | null>(null);
+  const [dbActions, setDbActions] = useState<DbAction[]>([]);
+  const [dbVolCount, setDbVolCount] = useState(0);
 
-  const openInvite = (v: Volunteer) => {
+  // Carrega ações e contagem de voluntários do Supabase
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("crisis_actions")
+      .select("id, title, description, location, urgency, effort, help_types, volunteers_needed, volunteers_joined, status, created_at")
+      .in("status", ["open", "in_progress"])
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const now = new Date();
+        setDbActions(
+          data.map((row) => {
+            const diffH = Math.floor((now.getTime() - new Date(row.created_at as string).getTime()) / 3_600_000);
+            const postedAgo = diffH < 1 ? "agora" : diffH < 24 ? `há ${diffH}h` : `há ${Math.floor(diffH / 24)}d`;
+            return {
+              id:               row.id as string,
+              title:            row.title as string,
+              description:      (row.description as string) ?? "",
+              location:         (row.location as string) ?? "",
+              urgency:          row.urgency as Urgency,
+              effort:           (row.effort as string) ?? "",
+              helpTypes:        (row.help_types as HelpType[]) ?? [],
+              volunteersNeeded: (row.volunteers_needed as number) ?? 1,
+              volunteersJoined: (row.volunteers_joined as number) ?? 0,
+              status:           row.status as string,
+              postedAgo,
+            };
+          })
+        );
+      });
+    supabase
+      .from("volunteers")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (count != null) setDbVolCount(count);
+      });
+  }, [user]);
+
+  // Ação mais crítica como pivot para o matching de voluntários
+  const priorityAction =
+    dbActions.find((a) => a.status === "open" && a.urgency === "high") ??
+    dbActions.find((a) => a.status === "open") ??
+    null;
+
+  const { results: aiVolunteers, loading: aiVolLoading } = useMatchedVolunteers(
+    priorityAction?.id ?? null,
+    priorityAction?.helpTypes ?? [],
+    priorityAction?.urgency ?? "high"
+  );
+
+  const openInvite = (v: MatchResult) => {
     setInvite({
       volunteer: v,
       message: buildInviteMessage(ongName, v),
@@ -140,27 +207,18 @@ function OngDashboard() {
   const sendInvite = async () => {
     if (!invite.volunteer || !user) return;
     setInvite((s) => ({ ...s, sending: true }));
-
-    // Tenta encontrar o voluntário por nome na tabela profiles
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id")
-      .ilike("full_name", `%${invite.volunteer.name.split(" ")[0]}%`)
-      .limit(1);
-
-    const recipientId = profiles?.[0]?.id ?? null;
-
+    // volunteerId === profile id — sem necessidade de busca por nome
     await supabase.from("notifications").insert({
-      recipient_id: recipientId,
+      recipient_id: invite.volunteer.volunteerId,
       sender_id: user.id,
       sender_name: ongName,
       type: "invite",
       title: `Convite de ${ongName}`,
       body: invite.message,
+      unread: true,
     });
-
     setInvite((s) => ({ ...s, sending: false, sent: true }));
-    if (invite.volunteer) setInvitedVols((prev) => new Set([...prev, invite.volunteer!.id]));
+    if (invite.volunteer) setInvitedVols((prev) => new Set([...prev, invite.volunteer!.volunteerId]));
   };
 
   const acceptRequest = (r: PendingRequest) => {
@@ -185,20 +243,24 @@ function OngDashboard() {
     setLocalPending((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const open = actions.filter((a) => a.status === "open");
-  const inProgress = actions.filter((a) => a.status === "in_progress");
+  const open = dbActions.filter((a) => a.status === "open");
+  const inProgress = dbActions.filter((a) => a.status === "in_progress");
+  const criticalGaps = open.filter((a) => a.volunteersJoined / a.volunteersNeeded < 0.5);
   const activeConnections = ngoConnections.filter((n) => n.status === "active");
+
+  // Análise de cobertura pelo agente (endpoint real)
+  const agentGaps = useAgentCoverageGaps(!!user);
 
   return (
     <AppShell role="ong">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold md:text-3xl">Painel · Cruz Verde Brasil</h1>
-          <p className="mt-1 text-muted-foreground">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">Painel · {ongName}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Tudo que sua ONG precisa orquestrar em um só lugar.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <Button asChild variant="outline" className="hidden sm:inline-flex">
             <Link to="/ong/resources">
               <Package className="mr-1 h-4 w-4" /> Recurso
@@ -216,23 +278,43 @@ function OngDashboard() {
       <div className="mt-6 bg-gradient-hero p-5 text-ai-foreground shadow-elegant">
         <div className="flex flex-wrap items-start gap-3">
           <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-[200px]">
-            <p className="font-bold">A IA orquestrou 3 movimentos hoje</p>
-            <p className="mt-1 text-sm opacity-90">
-              4 voluntários ideais para "Cestas básicas" · 2 ONGs com recursos compatíveis · 1 caso
-              urgente sugerido
-            </p>
+          <div className="flex-1 min-w-0">
+            {agentGaps.loading ? (
+              <>
+                <p className="font-bold flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Agente analisando cobertura…
+                </p>
+                <p className="mt-1 text-sm opacity-90">Processando {open.length + inProgress.length} ações ativas.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold">
+                  A IA analisou {agentGaps.totalAnalyzed || open.length + inProgress.length} ações ativas
+                </p>
+                <p className="mt-1 text-sm opacity-90 break-words">
+                  {agentGaps.gaps.length > 0
+                    ? `${agentGaps.gaps.length} ${agentGaps.gaps.length === 1 ? "ação" : "ações"} com cobertura crítica`
+                    : "Todas as ações com boa cobertura"}
+                  {agentGaps.summary.high > 0
+                    ? ` · ${agentGaps.summary.high} urgência alta`
+                    : ""}
+                  {aiVolunteers.length > 0 && priorityAction
+                    ? ` · ${aiVolunteers.length} voluntários compatíveis`
+                    : ""}
+                </p>
+              </>
+            )}
           </div>
           <Button asChild size="sm" variant="secondary" className="shrink-0">
-            <Link to="/ong/network">
-              Ver conexões <ArrowRight className="ml-1 h-3 w-3" />
+            <Link to="/ong/actions">
+              Ver ações <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </Button>
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="mt-6 grid gap-3 grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         {[
           {
             icon: AlertCircle,
@@ -258,7 +340,7 @@ function OngDashboard() {
           {
             icon: Users,
             label: "Voluntários ativos",
-            value: 312,
+            value: dbVolCount || 312,
             color: "text-primary",
             bg: "bg-primary/10",
           },
@@ -360,41 +442,54 @@ function OngDashboard() {
             </Button>
           </div>
           <div className="space-y-3">
-            {matchedVolunteers.slice(0, 3).map((v) => (
-              <div
-                key={v.id}
-                className="flex items-center gap-3 border border-border/60 bg-card p-4 shadow-soft"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold">
-                  {v.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold truncate">{v.name}</p>
-                    <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">
-                      {v.matchScore}%
-                    </span>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-0.5">
-                      <MapPin className="h-3 w-3" /> {v.distanceKm}km
-                    </span>
-                    <span className="flex items-center gap-0.5">
-                      <Star className="h-3 w-3 fill-warning text-warning" /> {v.rating}
-                    </span>
-                  </div>
-                </div>
-                {invitedVols.has(v.id) ? (
-                  <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Convidado
-                  </span>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => openInvite(v)}>
-                    Convidar
-                  </Button>
-                )}
+            {aiVolLoading ? (
+              <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Analisando voluntários…
               </div>
-            ))}
+            ) : aiVolunteers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Nenhum voluntário encontrado ainda.</p>
+            ) : (
+              aiVolunteers.slice(0, 3).map((v) => (
+                <div
+                  key={v.volunteerId}
+                  className="flex items-center gap-3 border border-border/60 bg-card p-4 shadow-soft"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold">
+                    {v.initials ?? v.name?.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold truncate">{v.name}</p>
+                      <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">
+                        {v.score}%
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      {v.distanceKm != null && (
+                        <span className="flex items-center gap-0.5">
+                          <MapPin className="h-3 w-3" /> {v.distanceKm}km
+                        </span>
+                      )}
+                      {v.rating != null && (
+                        <span className="flex items-center gap-0.5">
+                          <Star className="h-3 w-3 fill-warning text-warning" /> {v.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-ai/70 truncate">{v.reason}</p>
+                  </div>
+                  {invitedVols.has(v.volunteerId) ? (
+                    <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Convidado
+                    </span>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => openInvite(v)}>
+                      Convidar
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -434,11 +529,11 @@ function OngDashboard() {
                     <div>
                       <p className="font-semibold">{invite.volunteer.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {invite.volunteer.skills.join(" · ")} · {invite.volunteer.distanceKm}km
+                        {(invite.volunteer.skills ?? []).join(" · ")}{invite.volunteer.distanceKm != null ? ` · ${invite.volunteer.distanceKm}km` : ""}
                       </p>
                     </div>
                     <span className="ml-auto rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai">
-                      {invite.volunteer.matchScore}% match
+                      {invite.volunteer.score}% match
                     </span>
                   </div>
                 )}

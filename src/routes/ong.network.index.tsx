@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/ong/network/")({
   head: () => ({
@@ -102,11 +104,44 @@ const initialPendingRequests: PendingRequest[] = [
 ];
 
 function NetworkPage() {
+  const { user } = useAuth();
   const [localPending, setLocalPending] = useState<PendingRequest[]>(initialPendingRequests);
   const [localAccepted, setLocalAccepted] = useState<NgoConnection[]>([]);
   const [profileNgo, setProfileNgo] = useState<PendingRequest | null>(null);
 
-  const acceptRequest = (r: PendingRequest) => {
+  // Carrega ofertas reais do banco
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("ngo_help_offers")
+      .select("*")
+      .eq("recipient_ngo_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const dbRequests: PendingRequest[] = data.map((row) => ({
+          id:           row.id as string,
+          org:          row.sender_name as string,
+          orgInitials:  row.sender_initials as string,
+          city:         row.sender_city as string || "—",
+          topic:        row.resource_name as string,
+          message:      row.message as string,
+          receivedAgo:  "agora",
+          matchScore:   row.match_score as number,
+          actionTitle:  row.action_title as string,
+        }));
+        setLocalPending((prev) => [
+          ...dbRequests,
+          // mantém mocks que não foram substituídos por registros reais
+          ...prev.filter((p) => !dbRequests.find((d) => d.id === p.id)),
+        ]);
+      });
+  }, [user]);
+
+  const acceptRequest = async (r: PendingRequest) => {
+    // Atualiza no banco se for uma oferta real (UUID v4)
+    await supabase.from("ngo_help_offers").update({ status: "accepted" }).eq("id", r.id);
     setLocalPending((prev) => prev.filter((p) => p.id !== r.id));
     setLocalAccepted((prev) => [
       ...prev,
@@ -124,7 +159,8 @@ function NetworkPage() {
     ]);
   };
 
-  const rejectRequest = (id: string) => {
+  const rejectRequest = async (id: string) => {
+    await supabase.from("ngo_help_offers").update({ status: "rejected" }).eq("id", id);
     setLocalPending((prev) => prev.filter((p) => p.id !== id));
   };
 

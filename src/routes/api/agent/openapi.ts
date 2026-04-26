@@ -60,16 +60,20 @@ const spec = {
                   properties: {
                     actionId:        { type: "string" },
                     actionTitle:     { type: "string" },
+                    hasDistanceData: { type: "boolean", description: "true se distância foi calculada a partir de coordenadas" },
                     totalVolunteers: { type: "integer" },
                     matches: {
                       type: "array",
                       items: {
                         type: "object",
                         properties: {
-                          volunteerId: { type: "string" },
-                          name:        { type: "string" },
-                          score:       { type: "integer", description: "0–100" },
-                          reason:      { type: "string" },
+                          volunteerId:    { type: "string" },
+                          name:           { type: "string" },
+                          score:          { type: "integer", description: "0–100" },
+                          reason:         { type: "string" },
+                          distanceKm:     { type: "number", nullable: true, description: "Distância estimada do voluntário até a ação em km" },
+                          travelMinutes:  { type: "integer", nullable: true, description: "Tempo estimado de deslocamento em minutos (40 km/h)" },
+                          fuelCostBrl:    { type: "number", nullable: true, description: "Custo estimado de gasolina em R$ (R$6,20/L, 12 km/L)" },
                           breakdown: {
                             type: "object",
                             properties: {
@@ -113,6 +117,20 @@ const spec = {
             description: "Número máximo de recomendações (1–30, padrão 10).",
             schema:      { type: "integer", default: 10, minimum: 1, maximum: 30 },
           },
+          {
+            name:        "lat",
+            in:          "query",
+            required:    false,
+            description: "Latitude atual do voluntário (GPS). Quando fornecida junto com 'lon', a distância até cada ação é calculada e incluir no score e na resposta.",
+            schema:      { type: "number", example: -26.9196 },
+          },
+          {
+            name:        "lon",
+            in:          "query",
+            required:    false,
+            description: "Longitude atual do voluntário (GPS).",
+            schema:      { type: "number", example: -49.0661 },
+          },
         ],
         responses: {
           "200": {
@@ -123,16 +141,20 @@ const spec = {
                   type: "object",
                   properties: {
                     volunteerId:     { type: "string" },
+                    hasDistanceData: { type: "boolean", description: "true se lat/lon foram fornecidos e distância foi calculada" },
                     totalActions:    { type: "integer" },
                     recommendations: {
                       type: "array",
                       items: {
                         type: "object",
                         properties: {
-                          actionId: { type: "string" },
-                          title:    { type: "string" },
-                          score:    { type: "integer" },
-                          reason:   { type: "string" },
+                          actionId:      { type: "string" },
+                          title:         { type: "string" },
+                          score:         { type: "integer" },
+                          reason:        { type: "string" },
+                          distanceKm:    { type: "number", nullable: true, description: "Distância em km do voluntário até a ação" },
+                          travelMinutes: { type: "integer", nullable: true, description: "Tempo estimado em minutos" },
+                          fuelCostBrl:   { type: "number", nullable: true, description: "Custo estimado de gasolina em R$" },
                         },
                       },
                     },
@@ -210,8 +232,78 @@ const spec = {
       },
     },
 
-    "/api/agent/invite": {
-      post: {
+    "/api/agent/match-resources": {
+      get: {
+        operationId: "matchResourcesForActions",
+        summary:     "Cruza recursos das ONGs com ações abertas que precisam deles",
+        description: "Analisa semanticamente a descrição de cada recurso cadastrado e identifica ações abertas compatíveis, ranqueando por score de categoria + palavras-chave + urgência. Use para sugerir colaborações entre ONGs.",
+        tags:        ["Recursos"],
+        parameters: [
+          {
+            name:        "resourceId",
+            in:          "query",
+            required:    false,
+            description: "Filtra por recurso específico (UUID). Se omitido, analisa todos os recursos.",
+            schema:      { type: "string" },
+          },
+          {
+            name:        "actionId",
+            in:          "query",
+            required:    false,
+            description: "Filtra por ação específica (UUID). Se omitido, analisa todas as ações abertas.",
+            schema:      { type: "string" },
+          },
+          {
+            name:        "limit",
+            in:          "query",
+            required:    false,
+            description: "Máximo de pares retornados (1–50, padrão 10).",
+            schema:      { type: "integer", default: 10, minimum: 1, maximum: 50 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Pares recurso↔ação ordenados por score.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    totalResourcesAnalyzed: { type: "integer" },
+                    totalActionsAnalyzed:   { type: "integer" },
+                    totalPairs:             { type: "integer" },
+                    matches: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          resourceId:       { type: "string" },
+                          resourceName:     { type: "string" },
+                          orgName:          { type: "string" },
+                          quantity:         { type: "string" },
+                          resourceLocation: { type: "string" },
+                          actionId:         { type: "string" },
+                          actionTitle:      { type: "string" },
+                          actionLocation:   { type: "string" },
+                          urgency:          { type: "string" },
+                          coveragePct:      { type: "integer" },
+                          score:            { type: "integer", description: "0–100" },
+                          reason:           { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Não autorizado." },
+          "500": { description: "Erro interno." },
+        },
+      },
+    },
+
+    "/api/agent/invite": {      post: {
         operationId: "inviteVolunteerToAction",
         summary:     "Envia convite de uma ONG para um voluntário",
         description: "Insere uma notificação do tipo 'invite' para o voluntário. Chamado pelo agente após encontrar matches ou pelo gestor da ONG.",

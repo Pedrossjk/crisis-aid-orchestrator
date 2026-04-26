@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   rankVolunteersForAction,
   rankActionsForVolunteer,
+  haversineKm,
+  distanceToScore,
   type VolunteerInput,
   type ActionInput,
   type MatchResult,
@@ -250,4 +252,353 @@ export function useRecommendedActionIds(volunteerId: string | null): {
   }, [volunteerId]);
 
   return { recommendedIds, loading };
+}
+
+// ── Hook: score do voluntário logado para uma ação específica ─
+
+import { scoreVolunteerForAction, cityToCoords } from "@/lib/matching";
+export type MyScoreResult = {
+  score: number;
+  reason: string;
+  distanceKm: number | null;
+  travelMinutes: number | null;
+  fuelCostBrl: number | null;
+  distanceSource: "gps" | "city" | null; // indica como a distância foi calculada
+  loading: boolean;
+};
+
+/**
+ * Calcula o score de compatibilidade do voluntário logado com uma ação.
+ * Usa geolocalização real do browser para calcular distância.
+ *
+ * @param volunteerId  auth.uid() do voluntário logado
+ * @param actionId     UUID da ação no banco
+ * @param actionLat    latitude da ação (null se desconhecida)
+ * @param actionLon    longitude da ação (null se desconhecida)
+ * @param actionHelpTypes  help_types da ação
+ * @param actionUrgency   urgência da ação
+ */
+export function useMyScoreForAction(
+  volunteerId: string | null,
+  actionId: string | null,
+  userLat: number | null,
+  userLon: number | null,
+  actionLat: number | null,
+  actionLon: number | null,
+  actionHelpTypes: string[],
+  actionUrgency: "high" | "medium" | "low",
+  passedDistanceSource?: "gps" | "city" | null
+): MyScoreResult {
+  const [result, setResult] = useState<MyScoreResult>({
+    score: 0, reason: "", distanceKm: null, travelMinutes: null, fuelCostBrl: null, distanceSource: null, loading: true,
+  });
+
+  useEffect(() => {
+    if (!actionId) return;
+
+    setResult((r) => ({ ...r, loading: true }));
+    let cancelled = false;
+
+    (async () => {
+      // ── Distância (calculada localmente a partir das coords passadas) ──────
+      let distanceKm: number | null = null;
+      const distanceSource = passedDistanceSource ?? null;
+
+      if (userLat != null && userLon != null && actionLat != null && actionLon != null) {
+        distanceKm = parseFloat(
+          haversineKm(userLat, userLon, actionLat, actionLon).toFixed(1)
+        );
+      }
+
+      if (cancelled) return;
+
+      // ── Estimativas de deslocamento ────────────────────────────────────────
+      const travelMinutes = distanceKm != null ? Math.round((distanceKm / 40) * 60) : null;
+      const fuelCostBrl   = distanceKm != null ? parseFloat(((distanceKm / 12) * 6.20).toFixed(2)) : null;
+
+      // ── Score de compatibilidade (requer row em volunteers) ────────────────
+      let score = 0;
+      let reason = "";
+
+      if (volunteerId) {
+        const { data: volData } = await supabase
+          .from("volunteers")
+          .select("id, skills, help_types, reliability, rating, completed_actions")
+          .eq("id", volunteerId)
+          .maybeSingle();
+
+        if (!cancelled && volData) {
+          const volunteer: VolunteerInput = {
+            id:                volData.id as string,
+            skills:            (volData.skills as string[]) ?? [],
+            help_types:        (volData.help_types as string[]) ?? [],
+            reliability:       (volData.reliability as number) ?? 50,
+            rating:            (volData.rating as number) ?? 3.0,
+            completed_actions: (volData.completed_actions as number) ?? 0,
+            distanceKm:        distanceKm ?? undefined,
+          };
+
+          const actionInput: ActionInput = {
+            id:                actionId,
+            title:             "",
+            description:       "",
+            help_types:        actionHelpTypes,
+            urgency:           actionUrgency,
+            volunteers_needed: 1,
+            volunteers_joined: 0,
+          };
+
+          const matchResult = scoreVolunteerForAction(volunteer, actionInput);
+          score  = matchResult.score;
+          reason = matchResult.reason;
+        }
+      }
+
+      if (!cancelled) {
+        setResult({ score, reason, distanceKm, travelMinutes, fuelCostBrl, distanceSource, loading: false });
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [volunteerId, actionId, userLat, userLon, actionLat, actionLon]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return result;
+}
+
+// ── Hook: recomendações via agente (endpoint real) ────────────
+
+export type AgentRecommendation = {
+  actionId: string;
+  score: number;
+  reason: string;
+  distanceKm: number | null;
+  travelMinutes: number | null;
+  fuelCostBrl: number | null;
+};
+
+export type AgentRecommendationsResult = {
+  recommendations: AgentRecommendation[];
+  totalActions: number;
+  hasDistanceData: boolean;
+  loading: boolean;
+};
+
+/**
+ * Chama GET /api/agent/recommend/:volunteerId com JWT do Supabase.
+ * Retorna ações ordenadas por score real do agente (não binário).
+ * Inclui GPS se disponível para melhorar o score de distância.
+ */
+export function useAgentRecommendations(
+  volunteerId: string | null
+): AgentRecommendationsResult {
+  const [state, setState] = useState<AgentRecommendationsResult>({
+    recommendations: [], totalActions: 0, hasDistanceData: false, loading: true,
+  });
+
+  useEffect(() => {
+    if (!volunteerId) {
+      setState((s) => ({ ...s, loading: false }));
+      return;
+    }
+
+    let cancelled = false;
+    // Garante spinner enquanto o fetch está em voo (inclusive no 2° render quando auth carrega)
+    setState((s) => ({ ...s, loading: true }));
+
+    (async () => {
+      // 1. Pega JWT do Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const jwt = session?.access_token;
+      if (!jwt || cancelled) {
+        setState((s) => ({ ...s, loading: false }));
+        return;
+      }
+
+      // 2. Tenta GPS (opcional — melhora o score de distância)
+      let gpsParams = "";
+      let userLat: number | null = null;
+      let userLon: number | null = null;
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 })
+        );
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        gpsParams = `&lat=${userLat}&lon=${userLon}`;
+      } catch {
+        // Sem GPS — agente usará só tipos de ajuda e confiabilidade
+      }
+
+      // 3. Tenta endpoint do agente
+      let apiSuccess = false;
+      try {
+        const res = await fetch(
+          `/api/agent/recommend/${volunteerId}?limit=30${gpsParams}`,
+          { headers: { Authorization: `Bearer ${jwt}` } }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json() as {
+          recommendations: AgentRecommendation[];
+          totalActions: number;
+          hasDistanceData: boolean;
+        };
+        if (!cancelled && (json.totalActions ?? 0) > 0) {
+          setState({
+            recommendations: json.recommendations ?? [],
+            totalActions:    json.totalActions,
+            hasDistanceData: json.hasDistanceData ?? false,
+            loading:         false,
+          });
+          apiSuccess = true;
+        }
+      } catch {
+        // ignora — fallback local abaixo
+      }
+
+      if (apiSuccess || cancelled) return;
+
+      // 4. Fallback local: busca ações + perfil do voluntário no Supabase e computa localmente
+      try {
+        const [actionsRes, volRes] = await Promise.all([
+          supabase
+            .from("crisis_actions")
+            .select("id, title, urgency, help_types, volunteers_needed, volunteers_joined, latitude, longitude")
+            .in("status", ["open", "in_progress"]),
+          supabase
+            .from("volunteers")
+            .select("id, help_types, reliability, rating")
+            .eq("id", volunteerId)
+            .maybeSingle(),
+        ]);
+
+        if (cancelled) return;
+
+        const actions = actionsRes.data ?? [];
+        const vol = volRes.data;
+
+        if (actions.length === 0) {
+          setState((s) => ({ ...s, loading: false }));
+          return;
+        }
+
+        // Computa scores localmente sem o volunteer (só prioridade de urgência)
+        const scored: AgentRecommendation[] = actions.map((a) => {
+          const urgencyWeight = a.urgency === "critical" ? 1.0 : a.urgency === "high" ? 0.8 : a.urgency === "medium" ? 0.6 : 0.4;
+          const coverage = Math.min(1, (a.volunteers_joined ?? 0) / Math.max(1, a.volunteers_needed ?? 1));
+          const coverageGap = 1 - coverage;
+
+          const volTypes: string[] = (vol?.help_types as string[] | null) ?? [];
+          const actTypes: string[] = (a.help_types as string[] | null) ?? [];
+          const overlap = volTypes.length > 0 && actTypes.length > 0
+            ? actTypes.filter((t) => volTypes.includes(t)).length / actTypes.length
+            : 0.5; // sem dados: neutro
+
+          let distScore = 50;
+          if (userLat != null && userLon != null && a.latitude != null && a.longitude != null) {
+            distScore = distanceToScore(haversineKm(userLat, userLon, a.latitude as number, a.longitude as number));
+          }
+
+          const raw = (overlap * 0.40 + coverageGap * 0.30 + (vol?.reliability ?? 80) / 100 * 0.15 + distScore / 100 * 0.15) * urgencyWeight * 100;
+          return {
+            actionId: a.id as string,
+            score:    Math.round(Math.max(0, Math.min(100, raw))),
+            reason:   "Compatibilidade estimada localmente",
+          };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+
+        if (!cancelled) {
+          setState({
+            recommendations: scored,
+            totalActions:    actions.length,
+            hasDistanceData: userLat != null,
+            loading:         false,
+          });
+        }
+      } catch {
+        if (!cancelled) setState((s) => ({ ...s, loading: false }));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [volunteerId]);
+
+  return state;
+}
+
+// ── Hook: coverage gaps via agente (endpoint real) ────────────
+
+export type CoverageGap = {
+  actionId: string;
+  title: string;
+  urgency: string;
+  coveragePct: number;
+  volunteersNeeded: number;
+  volunteersJoined: number;
+  missingCount: number;
+};
+
+export type AgentCoverageGapsResult = {
+  gaps: CoverageGap[];
+  totalAnalyzed: number;
+  summary: { high: number; medium: number; low: number };
+  loading: boolean;
+};
+
+/**
+ * Chama GET /api/agent/coverage-gaps com JWT do Supabase.
+ * Retorna análise de cobertura feita pelo agente (servidor).
+ */
+export function useAgentCoverageGaps(
+  enabled: boolean = true
+): AgentCoverageGapsResult {
+  const [state, setState] = useState<AgentCoverageGapsResult>({
+    gaps: [], totalAnalyzed: 0, summary: { high: 0, medium: 0, low: 0 }, loading: true,
+  });
+
+  useEffect(() => {
+    if (!enabled) {
+      setState((s) => ({ ...s, loading: false }));
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const jwt = session?.access_token;
+      if (!jwt || cancelled) {
+        setState((s) => ({ ...s, loading: false }));
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/agent/coverage-gaps?threshold=50`,
+          { headers: { Authorization: `Bearer ${jwt}` } }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json() as {
+          gaps: CoverageGap[];
+          totalActionsAnalyzed: number;
+          summary: { high: number; medium: number; low: number };
+        };
+        if (!cancelled) {
+          setState({
+            gaps:          json.gaps ?? [],
+            totalAnalyzed: json.totalActionsAnalyzed ?? 0,
+            summary:       json.summary ?? { high: 0, medium: 0, low: 0 },
+            loading:       false,
+          });
+        }
+      } catch {
+        if (!cancelled) setState((s) => ({ ...s, loading: false }));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  return state;
 }

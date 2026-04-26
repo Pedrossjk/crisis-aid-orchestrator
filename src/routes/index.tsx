@@ -36,7 +36,7 @@ function Landing() {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="mt-2 mx-auto flex max-w-full items-center justify-between px-18   py-5 bg-white/80 backdrop-blur-sm shadow-elegant">
+      <header className="mt-2 mx-auto flex max-w-full items-center justify-between px-5 py-5 bg-white/80 backdrop-blur-sm shadow-elegant">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-hero shadow-glow">
             <HeartHandshake className="h-5 w-5 text-primary-foreground" />
@@ -159,14 +159,14 @@ function Landing() {
               title: "Voluntário",
               desc: "Receba ações personalizadas pela IA, baseadas no seu perfil, localização e disponibilidade.",
               color: "bg-primary",
-              to: "/volunteer",
+              to: "/onboarding",
             },
             {
               icon: Building2,
               title: "ONG",
               desc: "Crie ações, gerencie voluntários, cadastre recursos e conecte-se a outras instituições — tudo orquestrado por IA.",
               color: "bg-success",
-              to: "/ong",
+              to: "/onboarding",
             },
           ].map((r) => {
             const Icon = r.icon;
@@ -184,7 +184,7 @@ function Landing() {
                 <h3 className="mt-4 text-lg font-bold">{r.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{r.desc}</p>
                 <div className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary">
-                  Acessar painel
+                  Criar conta ou entrar
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
                 </div>
               </Link>
