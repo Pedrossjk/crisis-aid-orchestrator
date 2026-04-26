@@ -303,8 +303,109 @@ const spec = {
       },
     },
 
+    "/api/agent/crisis-summary": {
+      get: {
+        operationId: "summarizeCrisisStatus",
+        summary:     "Gera relatório completo do estado atual das ações",
+        description: "Retorna resumo em linguagem natural + dados estruturados: cobertura por ação, voluntários recomendados, candidaturas pendentes e recomendações de ação. Use para briefings automáticos à ONG.",
+        tags:        ["Análise"],
+        responses: {
+          "200": {
+            description: "Relatório completo.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    generatedAt: { type: "string", format: "date-time" },
+                    summary:     { type: "string", description: "Resumo em linguagem natural." },
+                    lines:       { type: "array", items: { type: "string" } },
+                    stats: {
+                      type: "object",
+                      properties: {
+                        totalActions:        { type: "integer" },
+                        completedThisMonth:  { type: "integer" },
+                        activeVolunteers:    { type: "integer" },
+                        criticalGaps:        { type: "integer" },
+                        highUrgencyGaps:     { type: "integer" },
+                        readyToInvite:       { type: "integer" },
+                        pendingApplications: { type: "integer" },
+                      },
+                    },
+                    actionDetails: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" }, title: { type: "string" },
+                          location: { type: "string" }, urgency: { type: "string" },
+                          coveragePct: { type: "integer" }, critical: { type: "boolean" },
+                        },
+                      },
+                    },
+                    topVolunteersForCriticalAction: {
+                      type: "object",
+                      properties: {
+                        actionTitle: { type: "string" },
+                        volunteers: { type: "array", items: { type: "object", properties: {
+                          name: { type: "string" }, score: { type: "integer" }, reason: { type: "string" },
+                        }}},
+                      },
+                    },
+                    recommendations: { type: "array", items: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Não autorizado." },
+        },
+      },
+    },
+
+    "/api/agent/notify-ong-summary": {
+      post: {
+        operationId: "notifyOngWithCrisisSummary",
+        summary:     "Envia relatório de crise como notificação para a ONG",
+        description: "Gera o relatório completo automaticamente e entrega como notificação no painel da ONG. Use após detectar gaps críticos via getCoverageGaps para alertar o gestor de forma proativa.",
+        tags:        ["Análise"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["recipientId"],
+                properties: {
+                  recipientId: { type: "string", description: "user_id (UUID) do dono da ONG que receberá a notificação." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Notificação enviada com sucesso.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    ok: { type: "boolean" }, recipientId: { type: "string" },
+                    title: { type: "string" }, body: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "recipientId ausente." },
+          "401": { description: "Não autorizado." },
+          "500": { description: "Erro ao inserir notificação." },
+        },
+      },
+    },
+
     "/api/agent/invite": {      post: {
-        operationId: "inviteVolunteerToAction",
         summary:     "Envia convite de uma ONG para um voluntário",
         description: "Insere uma notificação do tipo 'invite' para o voluntário. Chamado pelo agente após encontrar matches ou pelo gestor da ONG.",
         tags:        ["Ações"],

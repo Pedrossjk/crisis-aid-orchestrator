@@ -9,7 +9,7 @@ import {
   type HelpType,
   type NgoConnection,
 } from "@/lib/mock-data";
-import { useMatchedVolunteers, useAgentCoverageGaps, type MatchResult } from "@/hooks/use-agent";
+import { useMatchedVolunteers, useAgentCoverageGaps, useAgentCrisisSummary, type MatchResult } from "@/hooks/use-agent";
 import {
   Plus,
   Sparkles,
@@ -28,6 +28,8 @@ import {
   Building2,
   UserCheck,
   X,
+  RefreshCw,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -250,6 +252,69 @@ function OngDashboard() {
 
   // Análise de cobertura pelo agente (endpoint real)
   const agentGaps = useAgentCoverageGaps(!!user);
+  // Relatório completo gerado pelo agente
+  const crisisSummary = useAgentCrisisSummary(!!user);
+
+  // Gera e baixa o relatório como .txt
+  const downloadReport = () => {
+    if (crisisSummary.loading || !crisisSummary.summary) return;
+    const s = crisisSummary.stats;
+    const date = crisisSummary.generatedAt
+      ? new Date(crisisSummary.generatedAt).toLocaleString("pt-BR")
+      : new Date().toLocaleString("pt-BR");
+
+    const lines: string[] = [
+      "═══════════════════════════════════════════════════════════",
+      "   RELATÓRIO DE SITUAÇÃO — CRISIS AID ORCHESTRATOR",
+      `   Gerado por: IBM watsonx Orchestrate`,
+      `   Data/hora:  ${date}`,
+      "═══════════════════════════════════════════════════════════",
+      "",
+      "▶ RESUMO EXECUTIVO",
+      crisisSummary.summary,
+      "",
+      "▶ ESTATÍSTICAS",
+      `   • Ações ativas:             ${s.totalActions}`,
+      `   • Concluídas este mês:      ${s.completedThisMonth}`,
+      `   • Voluntários ativos:       ${s.activeVolunteers}`,
+      `   • Gaps críticos (< 50%):    ${s.criticalGaps}`,
+      `   • Urgência alta com gap:    ${s.highUrgencyGaps}`,
+      `   • Prontos para convidar:    ${s.readyToInvite}`,
+      `   • Candidaturas pendentes:   ${s.pendingApplications}`,
+      "",
+      "▶ COBERTURA POR AÇÃO",
+      ...crisisSummary.actionDetails.map((a) =>
+        `   ${a.critical ? "⚠" : "✓"} [${a.urgency.toUpperCase()}] ${a.title} — ${a.coveragePct}% preenchida (${a.location})`
+      ),
+      "",
+    ];
+
+    if (crisisSummary.topVolunteers.actionTitle && crisisSummary.topVolunteers.volunteers.length > 0) {
+      lines.push(`▶ TOP VOLUNTÁRIOS PARA "${crisisSummary.topVolunteers.actionTitle}"`);
+      crisisSummary.topVolunteers.volunteers.forEach((v, i) =>
+        lines.push(`   ${i + 1}. ${v.name} — score ${v.score}/100 — ${v.reason}`)
+      );
+      lines.push("");
+    }
+
+    if (crisisSummary.recommendations.length > 0) {
+      lines.push("▶ RECOMENDAÇÕES DO AGENTE");
+      crisisSummary.recommendations.forEach((r) => lines.push(`   ${r}`));
+      lines.push("");
+    }
+
+    lines.push("═══════════════════════════════════════════════════════════");
+    lines.push("   Crisis Aid Orchestrator · Hackathon IBM TechXchange 2026");
+    lines.push("═══════════════════════════════════════════════════════════");
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `relatorio-crise-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <AppShell role="ong">
@@ -274,44 +339,80 @@ function OngDashboard() {
         </div>
       </div>
 
-      {/* AI orchestration banner */}
+      {/* AI orchestration banner — resumo em linguagem natural */}
       <div className="mt-6 bg-gradient-hero p-5 text-ai-foreground shadow-elegant">
         <div className="flex flex-wrap items-start gap-3">
           <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
-            {agentGaps.loading ? (
-              <>
-                <p className="font-bold flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Agente analisando cobertura…
-                </p>
-                <p className="mt-1 text-sm opacity-90">Processando {open.length + inProgress.length} ações ativas.</p>
-              </>
+            <p className="font-bold flex items-center gap-2">
+              Relatório do agente
+              {crisisSummary.loading && <Loader2 className="h-3.5 w-3.5 animate-spin opacity-70" />}
+            </p>
+            {crisisSummary.loading ? (
+              <p className="mt-1 text-sm opacity-80">Analisando suas ações e voluntários…</p>
+            ) : crisisSummary.error ? (
+              <p className="mt-1 text-sm opacity-80 font-mono">⚠ Erro ao carregar: {crisisSummary.error}</p>
+            ) : crisisSummary.summary ? (
+              <p className="mt-1 text-sm opacity-90 leading-relaxed">{crisisSummary.summary}</p>
             ) : (
-              <>
-                <p className="font-bold">
-                  A IA analisou {agentGaps.totalAnalyzed || open.length + inProgress.length} ações ativas
-                </p>
-                <p className="mt-1 text-sm opacity-90 break-words">
-                  {agentGaps.gaps.length > 0
-                    ? `${agentGaps.gaps.length} ${agentGaps.gaps.length === 1 ? "ação" : "ações"} com cobertura crítica`
-                    : "Todas as ações com boa cobertura"}
-                  {agentGaps.summary.high > 0
-                    ? ` · ${agentGaps.summary.high} urgência alta`
-                    : ""}
-                  {aiVolunteers.length > 0 && priorityAction
-                    ? ` · ${aiVolunteers.length} voluntários compatíveis`
-                    : ""}
-                </p>
-              </>
+              <p className="mt-1 text-sm opacity-80">
+                {agentGaps.gaps.length > 0
+                  ? `${agentGaps.gaps.length} ações com cobertura crítica · ${agentGaps.summary.high > 0 ? `${agentGaps.summary.high} urgência alta` : ""}`
+                  : "Todas as ações com boa cobertura"}
+              </p>
+            )}
+            {!crisisSummary.loading && crisisSummary.stats.totalActions > 0 && (
+              <div className="mt-2 flex flex-wrap gap-3 text-xs opacity-80">
+                {crisisSummary.stats.criticalGaps > 0 && (
+                  <span>⚠ {crisisSummary.stats.criticalGaps} com cobertura crítica</span>
+                )}
+                {crisisSummary.stats.readyToInvite > 0 && (
+                  <span>👥 {crisisSummary.stats.readyToInvite} prontos para convidar</span>
+                )}
+                {crisisSummary.stats.pendingApplications > 0 && (
+                  <span>📋 {crisisSummary.stats.pendingApplications} candidaturas pendentes</span>
+                )}
+              </div>
             )}
           </div>
-          <Button asChild size="sm" variant="secondary" className="shrink-0">
-            <Link to="/ong/actions">
-              Ver ações <ArrowRight className="ml-1 h-3 w-3" />
-            </Link>
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={crisisSummary.refresh}
+              disabled={crisisSummary.loading}
+              className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
+              title="Atualizar relatório"
+            >
+              <RefreshCw className={`h-3 w-3 ${crisisSummary.loading ? "animate-spin" : ""}`} />
+              Atualizar
+            </button>
+            <button
+              onClick={downloadReport}
+              disabled={crisisSummary.loading}
+              className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
+              title="Baixar relatório completo"
+            >
+              <Download className="h-3 w-3" />
+              Baixar
+            </button>
+            <Button asChild size="sm" variant="secondary" className="shrink-0">
+              <Link to="/ong/actions">
+                Ver ações <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Recomendações do agente */}
+      {!crisisSummary.loading && crisisSummary.recommendations.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {crisisSummary.recommendations.map((rec, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-lg border border-ai/20 bg-ai/5 px-3 py-2 text-sm text-foreground">
+              {rec}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">

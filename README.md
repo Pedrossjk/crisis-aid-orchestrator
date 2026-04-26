@@ -110,20 +110,59 @@ POST /api/agent/invite
 
 **O que faz:** Cria uma notificação no banco para o voluntário indicado — o convite aparece no sino de notificações do voluntário em tempo real.
 
+#### Skill 5 — `summarizeCrisisStatus` ⭐ Nova
+
+```
+GET /supabase/functions/v1/crisis-summary
+```
+
+**Quando é usado:** Quando o Orchestrate é ativado sem instrução específica, ou quando o usuário pede um relatório/panorama.
+
+**O que faz:** Gera um relatório completo da situação de crise em linguagem natural + dados estruturados:
+- Resumo executivo em português
+- Estatísticas: ações ativas, concluídas no mês, voluntários ativos, gaps críticos
+- Cobertura por ação ordenada da mais crítica à mais completa
+- Top 3 voluntários compatíveis com a ação mais urgente
+- Recomendações de ação imediata com emojis de prioridade
+
+**Exemplo de resposta:**
+```json
+{
+  "generatedAt": "2026-04-26T15:30:00Z",
+  "summary": "Você tem 5 ações ativas. A ação \"Distribuição de alimentos\" está com urgência alta e apenas 20% das vagas preenchidas — priorize o recrutamento.",
+  "stats": {
+    "totalActions": 5,
+    "completedThisMonth": 2,
+    "criticalGaps": 2,
+    "readyToInvite": 4,
+    "pendingApplications": 3
+  },
+  "recommendations": [
+    "🚨 Prioridade máxima: recrutar voluntários para \"Distribuição de alimentos\" (20% preenchida, urgência alta).",
+    "✉️ Enviar convites para 4 voluntários compatíveis.",
+    "📋 Avaliar 3 candidaturas pendentes."
+  ]
+}
+```
+
+O relatório também é exibido no painel da ONG com um botão **Baixar relatório** que gera um arquivo `.txt` completo.
+
 ### Fluxo completo do Orchestrate
 
 ```
-ONG publica ação
+Orchestrate ativado
        │
        ▼
-Orchestrate chama matchVolunteersForAction(actionId)
+chama summarizeCrisisStatus (relatório completo)
        │
-       ▼
-Recebe lista de voluntários ranqueados por score
+       ├─ criticalGaps > 0
+       │       │
+       │       ▼
+       │  matchVolunteersForAction(actionId) para cada gap
+       │       │
+       │       └─ score ≥ 75 → inviteVolunteerToAction (máx 3/ação)
        │
-       ├─ score ≥ 80 → chama inviteVolunteerToAction para cada um
-       │
-       └─ coverage < 60% → alerta a ONG via getCoverageGaps
+       └─ Apresenta resumo: ações analisadas, convites enviados, gaps restantes
 ```
 
 O feed personalizado do voluntário (`/volunteer/`) também chama `recommendActionsForVolunteer` automaticamente ao abrir a página — o agente responde com as ações mais compatíveis, que aparecem com o badge "Recomendada pela IA".
@@ -154,16 +193,19 @@ Configure `AGENT_API_KEY` nas variáveis de ambiente (ver seção abaixo).
 ┌─────────────────────┐   ┌──────────────────────────┐
 │  Cloudflare Workers │   │  Supabase (PostgreSQL)   │
 │  (Edge runtime)     │   │  Auth · RLS · Realtime   │
-│  /api/agent/*       │   │  Storage                 │
-└─────────┬───────────┘   └──────────────────────────┘
-          │ Skills (OpenAPI)
-          ▼
+│  /api/agent/*       │   │  Edge Functions (Deno)   │
+│  (rotas SSR)        │   │  /functions/v1/*         │
+└─────────┬───────────┘   └──────────┬───────────────┘
+          │                          │ Skills (OpenAPI)
+          └──────────────┬───────────┘
+                         ▼
 ┌─────────────────────────────────────────────────────┐
 │              IBM watsonx Orchestrate                │
 │  matchVolunteersForAction                           │
 │  recommendActionsForVolunteer                       │
 │  getCoverageGaps                                    │
 │  inviteVolunteerToAction                            │
+│  summarizeCrisisStatus  ← Nova                      │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -175,7 +217,8 @@ Configure `AGENT_API_KEY` nas variáveis de ambiente (ver seção abaixo).
 |---|---|
 | Frontend | React 19, TanStack Router, TanStack Start |
 | Estilo | Tailwind CSS 4, Shadcn/ui, Radix UI |
-| Backend | Cloudflare Workers (Edge, sem servidor) |
+| Backend (SSR) | Cloudflare Workers (Edge, sem servidor) |
+| Backend (Skills) | Supabase Edge Functions (Deno) |
 | Banco de dados | Supabase (PostgreSQL + Auth + RLS + Realtime) |
 | IA / Agente | IBM watsonx Orchestrate |
 | Algoritmo de matching | Jaccard similarity + Haversine + pesos configuráveis |
@@ -319,7 +362,7 @@ wrangler secret put PUBLIC_APP_URL
 
 > `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` ficam no bundle do frontend — configure em `wrangler.jsonc` como `vars` ou inclua no `.env` antes do build.
 
-### 3. Build e deploy
+### 3. Build e deploy (Cloudflare Workers)
 
 ```bash
 pnpm build
@@ -328,7 +371,29 @@ npx wrangler deploy
 
 O Wrangler detecta automaticamente o entry point via `"main": "@tanstack/react-start/server-entry"` configurado em `wrangler.jsonc`.
 
-### 4. URL de produção
+### 4. Deploy das Supabase Edge Functions
+
+As Skills do Orchestrate rodam como **Supabase Edge Functions** (Deno). Faça o deploy de todas:
+
+```bash
+npx supabase login
+npx supabase link --project-ref <seu-project-ref>
+
+# Deploy de cada função
+npx supabase functions deploy coverage-gaps
+npx supabase functions deploy match-volunteers
+npx supabase functions deploy recommend
+npx supabase functions deploy invite
+npx supabase functions deploy crisis-summary
+```
+
+Configure o segredo `AGENT_API_KEY` nas funções:
+
+```bash
+npx supabase secrets set AGENT_API_KEY=hackathon-unasp-ibm-orquestra
+```
+
+### 5. URL de produção
 
 Após o deploy, o Wrangler exibe a URL:
 
@@ -347,14 +412,41 @@ Todos os endpoints ficam sob `/api/agent/` e aceitam `Authorization: Bearer <AGE
 ### Importar Skills no Orchestrate
 
 1. No painel do IBM watsonx Orchestrate, acesse **Skills → Add skills → Import from API**
-2. Cole a URL da spec:
+2. Cole a URL da spec (arquivo estático hospedado junto ao app):
    ```
-   https://seu-app.workers.dev/api/agent/openapi
+   https://seu-app.workers.dev/agent-openapi.json
    ```
-3. Informe a `AGENT_API_KEY` como Bearer token
-4. As 4 Skills são importadas automaticamente
+3. Em **Security**, configure `Bearer Token` = valor da sua `AGENT_API_KEY`
+4. As 5 Skills são importadas automaticamente
+
+### Instruções do agente (colar no campo Instructions)
+
+```
+Você é o Orquestra, agente de inteligência artificial do sistema Crisis Aid Orchestrator.
+Seu papel é orquestrar automaticamente o matching entre voluntários e ações humanitárias
+em resposta a crises, sem precisar de intervenção humana em cada decisão.
+
+Idioma: sempre responda em português do Brasil.
+
+Fluxo principal — quando ativado sem instrução específica:
+1. Chame summarizeCrisisStatus para obter o relatório completo
+2. Se stats.criticalGaps > 0 → para cada ação crítica, chame matchVolunteersForAction com limit=3
+3. Para cada voluntário com score >= 75 → chame inviteVolunteerToAction (máx 3 por ação)
+4. Apresente o resumo: ações analisadas, convites enviados, gaps críticos restantes
+
+Quando perguntado sobre relatório ou situação atual:
+- "gerar relatório", "status", "panorama", "situação atual" → chame summarizeCrisisStatus
+- Apresente o campo summary e as recommendations de forma clara
+
+Regras:
+- Nunca envie mais de 3 convites por ação por ciclo
+- Se retornar erro 404, informe que o recurso não existe e pare
+- Se retornar erro 401, informe que a chave de API está inválida e pare
+```
 
 ### Endpoints disponíveis
+
+#### Cloudflare Workers (SSR)
 
 | Método | Endpoint | Descrição |
 |---|---|---|
@@ -362,7 +454,17 @@ Todos os endpoints ficam sob `/api/agent/` e aceitam `Authorization: Bearer <AGE
 | `GET` | `/api/agent/recommend/:volunteerId` | Ações recomendadas para um voluntário |
 | `GET` | `/api/agent/coverage-gaps` | Ações com vagas insuficientes |
 | `POST` | `/api/agent/invite` | Envia convite de ONG para voluntário |
-| `GET` | `/api/agent/openapi` | Spec OpenAPI 3.0 para o Orchestrate |
+| `GET` | `/api/agent/openapi` | Spec OpenAPI 3.0 (dinâmica) |
+
+#### Supabase Edge Functions (Skills do Orchestrate)
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET` | `/functions/v1/coverage-gaps` | Ações com vagas insuficientes |
+| `GET` | `/functions/v1/match-volunteers` | Voluntários ranqueados |
+| `GET` | `/functions/v1/recommend` | Ações recomendadas |
+| `POST` | `/functions/v1/invite` | Envia convite para voluntário |
+| `GET` | `/functions/v1/crisis-summary` | Relatório completo ⭐ |
 
 ---
 
@@ -381,19 +483,31 @@ Cadastro → Onboarding (skills, cidade) → Feed personalizado (IA)
 
 ```
 Cadastro → Publicar ação (urgência, tipo de ajuda, vagas)
+  → Painel com relatório do agente (banner automático)
+  → Baixar relatório .txt completo gerado pelo agente
   → Receber candidaturas → Aceitar/Rejeitar → Chat com voluntário
   → Cadastrar recursos disponíveis → Ver matches com ações de outras ONGs
   → Enviar oferta de ajuda → Ver rede de colaboração
   → Marcar ação como concluída
 ```
 
+### Relatório do agente no painel da ONG
+
+Ao abrir o painel, o banner exibe automaticamente o relatório gerado pela skill `summarizeCrisisStatus`:
+
+- Resumo executivo em linguagem natural
+- Chips de estatísticas: gaps críticos, prontos para convidar, candidaturas pendentes
+- Recomendações de ação imediata abaixo do banner
+- Botão **Atualizar** para regenerar o relatório
+- Botão **Baixar** para exportar relatório completo em `.txt` com data/hora, cobertura por ação e top voluntários
+
 ### Matching automático (Orchestrate)
 
 ```
-ONG publica ação
-  → Orchestrate detecta via skill
-  → Executa matchVolunteersForAction
-  → Para cada voluntário com score ≥ 80: inviteVolunteerToAction
+Orchestrate ativado
+  → Executa summarizeCrisisStatus (relatório completo)
+  → Se gaps críticos: matchVolunteersForAction para cada ação
+  → Score ≥ 75: inviteVolunteerToAction (máx 3 por ação)
   → Voluntário recebe notificação em tempo real
   → Feed do voluntário atualiza com a ação no topo
 ```

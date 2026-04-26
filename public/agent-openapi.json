@@ -245,6 +245,80 @@
           "500": { "description": "Erro ao inserir notificação." }
         }
       }
+    },
+    "/crisis-summary": {
+      "get": {
+        "operationId": "summarizeCrisisStatus",
+        "summary": "Gera relatório completo da situação de crise",
+        "description": "Retorna relatório em linguagem natural com estatísticas, cobertura por ação, top voluntários para ação crítica e recomendações de ação imediata. Use este skill SEMPRE que o usuário pedir um relatório, resumo ou panorama das operações.",
+        "tags": ["Análise"],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Relatório completo gerado pelo agente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generatedAt": { "type": "string", "description": "ISO timestamp de geração" },
+                    "summary": { "type": "string", "description": "Resumo em linguagem natural" },
+                    "lines": { "type": "array", "items": { "type": "string" } },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "totalActions": { "type": "integer" },
+                        "completedThisMonth": { "type": "integer" },
+                        "activeVolunteers": { "type": "integer" },
+                        "criticalGaps": { "type": "integer" },
+                        "highUrgencyGaps": { "type": "integer" },
+                        "readyToInvite": { "type": "integer" },
+                        "pendingApplications": { "type": "integer" }
+                      }
+                    },
+                    "actionDetails": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "title": { "type": "string" },
+                          "location": { "type": "string" },
+                          "urgency": { "type": "string" },
+                          "coveragePct": { "type": "integer" },
+                          "critical": { "type": "boolean" }
+                        }
+                      }
+                    },
+                    "topVolunteersForCriticalAction": {
+                      "type": "object",
+                      "properties": {
+                        "actionTitle": { "type": "string" },
+                        "volunteers": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": { "type": "string" },
+                              "score": { "type": "integer" },
+                              "reason": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "recommendations": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Não autorizado." }
+        }
+      }
     }
   }
 }

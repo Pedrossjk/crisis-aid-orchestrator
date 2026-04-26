@@ -602,3 +602,121 @@ export function useAgentCoverageGaps(
 
   return state;
 }
+
+// ── Hook: resumo de crise em linguagem natural ────────────────
+
+type CrisisSummaryStats = {
+  totalActions: number;
+  completedThisMonth: number;
+  activeVolunteers: number;
+  criticalGaps: number;
+  highUrgencyGaps: number;
+  readyToInvite: number;
+  pendingApplications: number;
+};
+
+type ActionDetail = {
+  id: string;
+  title: string;
+  location: string;
+  urgency: string;
+  status: string;
+  coveragePct: number;
+  critical: boolean;
+};
+
+type CrisisSummaryResult = {
+  generatedAt: string;
+  summary: string;
+  lines: string[];
+  stats: CrisisSummaryStats;
+  actionDetails: ActionDetail[];
+  topVolunteers: { actionTitle: string; volunteers: { name: string; score: number; reason: string }[] };
+  recommendations: string[];
+  loading: boolean;
+  error: string;
+  refresh: () => void;
+};
+
+const EMPTY_SUMMARY_STATS: CrisisSummaryStats = {
+  totalActions: 0, completedThisMonth: 0, activeVolunteers: 0,
+  criticalGaps: 0, highUrgencyGaps: 0, readyToInvite: 0, pendingApplications: 0,
+};
+
+/**
+ * Busca o relatório completo de crise gerado pelo agente.
+ * Chama GET /api/agent/crisis-summary
+ */
+export function useAgentCrisisSummary(enabled: boolean = true): CrisisSummaryResult {
+  const [state, setState] = useState<CrisisSummaryResult>({
+    generatedAt: "",
+    summary: "",
+    lines: [],
+    stats: EMPTY_SUMMARY_STATS,
+    actionDetails: [],
+    topVolunteers: { actionTitle: "", volunteers: [] },
+    recommendations: [],
+    loading: true,
+    error: "",
+    refresh: () => {},
+  });
+  const [tick, setTick] = useState(0);
+
+  const refresh = () => setTick((t) => t + 1);
+
+  useEffect(() => {
+    if (!enabled) {
+      setState((s) => ({ ...s, loading: false }));
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      setState((s) => ({ ...s, loading: true, error: "" }));
+      const { data: { session } } = await supabase.auth.getSession();
+      const jwt = session?.access_token;
+      if (!jwt || cancelled) {
+        setState((s) => ({ ...s, loading: false, error: jwt ? "" : "Sessão não encontrada" }));
+        return;
+      }
+
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const res = await fetch(`${supabaseUrl}/functions/v1/crisis-summary`, {
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+        const json = await res.json() as {
+          generatedAt: string;
+          summary: string;
+          lines: string[];
+          stats: CrisisSummaryStats;
+          actionDetails: ActionDetail[];
+          topVolunteersForCriticalAction: { actionTitle: string; volunteers: { name: string; score: number; reason: string }[] };
+          recommendations: string[];
+        };
+        if (!cancelled) {
+          setState({
+            generatedAt:     json.generatedAt ?? "",
+            summary:         json.summary ?? "",
+            lines:           json.lines ?? [],
+            stats:           json.stats ?? EMPTY_SUMMARY_STATS,
+            actionDetails:   json.actionDetails ?? [],
+            topVolunteers:   json.topVolunteersForCriticalAction ?? { actionTitle: "", volunteers: [] },
+            recommendations: json.recommendations ?? [],
+            loading:         false,
+            error:           "",
+            refresh,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setState((s) => ({ ...s, loading: false, error: err instanceof Error ? err.message : String(err) }));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [enabled, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { ...state, refresh };
+}
