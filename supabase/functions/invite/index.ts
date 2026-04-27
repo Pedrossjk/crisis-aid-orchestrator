@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método não permitido" }, 405);
 
-  const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
+  const apiKey = req.headers.get("Authorization")?.replace(/^bearer\s+/i, "");
   const expected = Deno.env.get("AGENT_API_KEY");
   if (expected && apiKey !== expected) return json({ error: "Unauthorized" }, 401);
 
@@ -25,9 +25,14 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: "JSON inválido" }, 400); }
 
   const { volunteerId, actionId, actionTitle, senderName, senderId, message } = body;
-  if (!volunteerId || !actionId || !actionTitle || !senderName || !senderId) {
-    return json({ error: "Campos obrigatórios: volunteerId, actionId, actionTitle, senderName, senderId" }, 400);
+  if (!volunteerId || !actionId || !actionTitle || !senderName) {
+    return json({ error: "Campos obrigatórios: volunteerId, actionId, actionTitle, senderName" }, 400);
   }
+
+  // senderId é opcional — deve ser um UUID válido de auth.users.
+  // Se não for fornecido ou não for UUID válido, usa null (FK permite null).
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const resolvedSenderId: string | null = (senderId && UUID_RE.test(String(senderId))) ? senderId : null;
 
   const defaultMessage =
     `Olá!\n\nA ONG ${senderName} identificou que seu perfil é altamente compatível ` +
@@ -41,7 +46,7 @@ Deno.serve(async (req) => {
 
   const { error } = await supabase.from("notifications").insert({
     recipient_id: volunteerId,
-    sender_id: senderId,
+    sender_id: resolvedSenderId,
     sender_name: senderName,
     type: "invite",
     title: `Convite para: ${actionTitle}`,

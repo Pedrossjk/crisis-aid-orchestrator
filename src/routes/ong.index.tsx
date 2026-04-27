@@ -340,65 +340,72 @@ function OngDashboard() {
       </div>
 
       {/* AI orchestration banner — resumo em linguagem natural */}
-      <div className="mt-6 bg-gradient-hero p-5 text-ai-foreground shadow-elegant">
-        <div className="flex flex-wrap items-start gap-3">
+      <div className="mt-6 bg-gradient-hero p-4 sm:p-5 text-ai-foreground shadow-elegant rounded-xl">
+        <div className="flex gap-3">
           <Sparkles className="h-5 w-5 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="font-bold flex items-center gap-2">
-              Relatório do agente
-              {crisisSummary.loading && <Loader2 className="h-3.5 w-3.5 animate-spin opacity-70" />}
-            </p>
+            {/* Título + botões na mesma linha em desktop, empilhados em mobile */}
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <p className="font-bold flex items-center gap-2 text-sm sm:text-base">
+                Relatório do agente
+                {crisisSummary.loading && <Loader2 className="h-3.5 w-3.5 animate-spin opacity-70" />}
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={crisisSummary.refresh}
+                  disabled={crisisSummary.loading}
+                  className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
+                  title="Atualizar relatório"
+                >
+                  <RefreshCw className={`h-3 w-3 ${crisisSummary.loading ? "animate-spin" : ""}`} />
+                  <span className="hidden xs:inline">Atualizar</span>
+                </button>
+                <button
+                  onClick={downloadReport}
+                  disabled={crisisSummary.loading}
+                  className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
+                  title="Baixar relatório completo"
+                >
+                  <Download className="h-3 w-3" />
+                  <span className="hidden xs:inline">Baixar</span>
+                </button>
+                <Button asChild size="sm" variant="secondary" className="shrink-0 h-7 text-xs px-2">
+                  <Link to="/ong/actions">
+                    Ver ações <ArrowRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Texto do resumo */}
             {crisisSummary.loading ? (
-              <p className="mt-1 text-sm opacity-80">Analisando suas ações e voluntários…</p>
+              <p className="mt-1.5 text-sm opacity-80">Analisando suas ações e voluntários…</p>
             ) : crisisSummary.error ? (
-              <p className="mt-1 text-sm opacity-80 font-mono">⚠ Erro ao carregar: {crisisSummary.error}</p>
+              <p className="mt-1.5 text-xs opacity-80 font-mono break-all">⚠ Erro ao carregar: {crisisSummary.error}</p>
             ) : crisisSummary.summary ? (
-              <p className="mt-1 text-sm opacity-90 leading-relaxed">{crisisSummary.summary}</p>
+              <p className="mt-1.5 text-sm opacity-90 leading-relaxed">{crisisSummary.summary}</p>
             ) : (
-              <p className="mt-1 text-sm opacity-80">
+              <p className="mt-1.5 text-sm opacity-80">
                 {agentGaps.gaps.length > 0
                   ? `${agentGaps.gaps.length} ações com cobertura crítica · ${agentGaps.summary.high > 0 ? `${agentGaps.summary.high} urgência alta` : ""}`
                   : "Todas as ações com boa cobertura"}
               </p>
             )}
+
+            {/* Chips de estatísticas */}
             {!crisisSummary.loading && crisisSummary.stats.totalActions > 0 && (
-              <div className="mt-2 flex flex-wrap gap-3 text-xs opacity-80">
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5 text-xs opacity-80">
                 {crisisSummary.stats.criticalGaps > 0 && (
-                  <span>⚠ {crisisSummary.stats.criticalGaps} com cobertura crítica</span>
+                  <span>⚠ {crisisSummary.stats.criticalGaps} cobertura crítica</span>
                 )}
                 {crisisSummary.stats.readyToInvite > 0 && (
-                  <span>👥 {crisisSummary.stats.readyToInvite} prontos para convidar</span>
+                  <span>👥 {crisisSummary.stats.readyToInvite} prontos p/ convidar</span>
                 )}
                 {crisisSummary.stats.pendingApplications > 0 && (
-                  <span>📋 {crisisSummary.stats.pendingApplications} candidaturas pendentes</span>
+                  <span>📋 {crisisSummary.stats.pendingApplications} candidaturas</span>
                 )}
               </div>
             )}
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={crisisSummary.refresh}
-              disabled={crisisSummary.loading}
-              className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
-              title="Atualizar relatório"
-            >
-              <RefreshCw className={`h-3 w-3 ${crisisSummary.loading ? "animate-spin" : ""}`} />
-              Atualizar
-            </button>
-            <button
-              onClick={downloadReport}
-              disabled={crisisSummary.loading}
-              className="flex items-center gap-1 rounded-lg bg-white/15 px-2 py-1.5 text-xs font-medium hover:bg-white/25 disabled:opacity-50 transition"
-              title="Baixar relatório completo"
-            >
-              <Download className="h-3 w-3" />
-              Baixar
-            </button>
-            <Button asChild size="sm" variant="secondary" className="shrink-0">
-              <Link to="/ong/actions">
-                Ver ações <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
           </div>
         </div>
       </div>
@@ -484,10 +491,10 @@ function OngDashboard() {
             {open.slice(0, 3).map((a) => {
               const pct = (a.volunteersJoined / a.volunteersNeeded) * 100;
               return (
-                <div key={a.id} className="border border-border/60 bg-card p-4 shadow-soft">
-                  <div className="flex items-start justify-between gap-3">
+                <div key={a.id} className="border border-border/60 bg-card p-3 sm:p-4 shadow-soft rounded-xl">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span
                           className={cn(
                             "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
@@ -498,23 +505,23 @@ function OngDashboard() {
                         </span>
                         <span className="text-xs text-muted-foreground">{a.postedAgo}</span>
                       </div>
-                      <p className="mt-1.5 font-semibold leading-tight">{a.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {a.location}
+                      <p className="mt-1 font-semibold leading-tight text-sm line-clamp-2">{a.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1 truncate">
+                        <MapPin className="h-3 w-3 shrink-0" /> {a.location}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold">
+                    <div className="text-right shrink-0 ml-2">
+                      <p className="text-sm font-bold tabular-nums">
                         {a.volunteersJoined}/{a.volunteersNeeded}
                       </p>
                       <p className="text-[10px] text-muted-foreground">voluntários</p>
                     </div>
                   </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-muted">
                     <div className="h-full bg-gradient-hero" style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {a.helpTypes.map((t) => (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {a.helpTypes.slice(0, 3).map((t) => (
                       <span
                         key={t}
                         className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
@@ -522,6 +529,11 @@ function OngDashboard() {
                         {helpTypeLabels[t]}
                       </span>
                     ))}
+                    {a.helpTypes.length > 3 && (
+                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        +{a.helpTypes.length - 3}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -553,19 +565,19 @@ function OngDashboard() {
               aiVolunteers.slice(0, 3).map((v) => (
                 <div
                   key={v.volunteerId}
-                  className="flex items-center gap-3 border border-border/60 bg-card p-4 shadow-soft"
+                  className="flex items-center gap-3 border border-border/60 bg-card p-3 sm:p-4 shadow-soft rounded-xl"
                 >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold">
+                  <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-hero text-primary-foreground font-bold text-sm">
                     {v.initials ?? v.name?.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold truncate">{v.name}</p>
+                      <p className="font-semibold truncate text-sm">{v.name}</p>
                       <span className="rounded-full bg-ai/10 px-2 py-0.5 text-[10px] font-bold text-ai shrink-0">
                         {v.score}%
                       </span>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       {v.distanceKm != null && (
                         <span className="flex items-center gap-0.5">
                           <MapPin className="h-3 w-3" /> {v.distanceKm}km
@@ -580,12 +592,14 @@ function OngDashboard() {
                     <p className="mt-0.5 text-[10px] text-ai/70 truncate">{v.reason}</p>
                   </div>
                   {invitedVols.has(v.volunteerId) ? (
-                    <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-bold text-success">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Convidado
+                    <span className="flex items-center gap-1 rounded-full bg-success/15 px-2 sm:px-2.5 py-1 text-[11px] font-bold text-success shrink-0">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Convidado</span>
                     </span>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => openInvite(v)}>
-                      Convidar
+                    <Button size="sm" variant="outline" onClick={() => openInvite(v)} className="shrink-0 text-xs px-2 sm:px-3">
+                      <Send className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Convidar</span>
                     </Button>
                   )}
                 </div>

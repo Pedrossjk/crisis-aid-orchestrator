@@ -210,13 +210,13 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["volunteerId", "actionId", "actionTitle", "senderName", "senderId"],
+                "required": ["volunteerId", "actionId", "actionTitle", "senderName"],
                 "properties": {
                   "volunteerId": { "type": "string", "description": "UUID do voluntário destinatário." },
                   "actionId": { "type": "string", "description": "UUID ou ID da ação." },
                   "actionTitle": { "type": "string", "description": "Título da ação." },
                   "senderName": { "type": "string", "description": "Nome da ONG remetente." },
-                  "senderId": { "type": "string", "description": "UUID do usuário ONG remetente." },
+                  "senderId": { "type": "string", "description": "UUID do usuário ONG remetente (opcional)." },
                   "message": { "type": "string", "description": "Mensagem personalizada (opcional)." }
                 }
               }

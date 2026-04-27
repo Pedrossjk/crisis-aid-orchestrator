@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   // Auth
-  const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
+  const apiKey = req.headers.get("Authorization")?.replace(/^bearer\s+/i, "");
   const expected = Deno.env.get("AGENT_API_KEY");
   if (expected && apiKey !== expected) return json({ error: "Unauthorized" }, 401);
 
@@ -52,15 +52,29 @@ Deno.serve(async (req) => {
   };
 
   // Busca voluntários com perfil
-  const { data: volRows } = await supabase
+  // Query volunteers e profiles em duas chamadas separadas para evitar
+  // falha silenciosa do PostgREST ao inferir FK volunteers.id → profiles.id
+  const { data: volRows, error: volErr } = await supabase
     .from("volunteers")
-    .select("id, skills, help_types, reliability, rating, completed_actions, profiles!inner(full_name)")
+    .select("id, skills, help_types, reliability, rating, completed_actions")
     .order("reliability", { ascending: false })
     .limit(500);
 
+  if (volErr) return json({ error: "Erro ao buscar voluntários", detail: volErr.message }, 500);
+
+  const volIds = (volRows ?? []).map((v: { id: string }) => v.id);
+
+  const { data: profileRows } = volIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name").in("id", volIds)
+    : { data: [] };
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Voluntário"])
+  );
+
   // deno-lint-ignore no-explicit-any
   const volunteers: VolunteerInput[] = (volRows ?? []).map((row: any) => {
-    const fullName: string = row.profiles?.full_name ?? "Voluntário";
+    const fullName: string = profileMap.get(row.id) ?? "Voluntário";
     return {
       id: row.id,
       name: fullName,

@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   // ── Auth ──────────────────────────────────────────────────
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
+  const token = req.headers.get("Authorization")?.replace(/^bearer\s+/i, "") ?? "";
   const expected = Deno.env.get("AGENT_API_KEY");
 
   let authed = !expected; // sem env → aberto (dev local)
@@ -117,13 +117,21 @@ Deno.serve(async (req) => {
     pivotTitle = pivot.title;
     const { data: volRows } = await adminClient
       .from("volunteers")
-      .select("id, skills, help_types, reliability, rating, completed_actions, profiles!inner(full_name)")
+      .select("id, skills, help_types, reliability, rating, completed_actions")
       .limit(100);
+
+    const volIds2 = (volRows ?? []).map((v: { id: string }) => v.id);
+    const { data: profileRows2 } = volIds2.length > 0
+      ? await adminClient.from("profiles").select("id, full_name").in("id", volIds2)
+      : { data: [] };
+    const profileMap2 = new Map(
+      (profileRows2 ?? []).map((p: { id: string; full_name: string | null }) => [p.id, p.full_name ?? "Voluntário"])
+    );
 
     // deno-lint-ignore no-explicit-any
     const volunteers: VolunteerInput[] = (volRows ?? []).map((v: any) => ({
       id:                v.id,
-      name:              v.profiles?.full_name ?? "Voluntário",
+      name:              profileMap2.get(v.id) ?? "Voluntário",
       help_types:        v.help_types ?? [],
       reliability:       v.reliability ?? 50,
       rating:            v.rating ?? 3,

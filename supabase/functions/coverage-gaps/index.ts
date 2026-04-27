@@ -16,7 +16,7 @@ function json(data: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
-  const apiKey = req.headers.get("Authorization")?.replace("Bearer ", "");
+  const apiKey = req.headers.get("Authorization")?.replace(/^bearer\s+/i, "");
   const expected = Deno.env.get("AGENT_API_KEY");
   if (expected && apiKey !== expected) return json({ error: "Unauthorized" }, 401);
 
